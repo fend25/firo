@@ -25,8 +25,6 @@ export type ContextItemWithOptions = ContextItem & { options: Required<ContextOp
 
 export type LogOptions = {
   pretty?: boolean // Включить multiline для data
-  timeLocale?: string // Локаль для форматирования времени
-  time12h?: boolean // 12-часовой формат времени
   ctx?: ContextItem[] // Дополнительный контекст для данного лога
 }
 

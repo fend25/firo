@@ -87,15 +87,15 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
 
   // Рекурсивное создание ребенка
   const child = (ctx: Record<string, ContextValue>): ILogger => {
-    const newItems = Object.entries(ctx).map(([key, value]) => ({
+    const newItems: ContextItem[] = Object.entries(ctx).map(([key, value]) => ({
       key,
       value,
-      colorIndex: getColorIndex(key)
+      options: { colorIndex: getColorIndex(key) }
     }))
 
     // Важно: передаем текущий context + новые айтемы.
     // Передаем тот же transport, чтобы не пересоздавать его.
-    return createLogger({transport}, [...context, ...newItems])
+    return createLogger({transport, minLevel: minLevelName}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {
@@ -112,9 +112,9 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
   }
 
   // Реализация error (принимает union types, а интерфейс ILogger разруливает типы для юзера)
-  const error = (msgOrError: string | Error | unknown, err?: Error | unknown) => {
+  const error = (msgOrError: string | Error | unknown, err?: Error | unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.error) return
-    transport('error', context, msgOrError as any, err)
+    transport('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)
   }
 
   return {

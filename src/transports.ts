@@ -63,7 +63,12 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
       dataStr
     ]
 
-    const finalLine = parts.filter(Boolean).join(' ') + '\n'
+    let finalLine = parts.filter(Boolean).join(' ') + '\n'
+    if (level === 'debug') {
+      // Re-enable dim after every \x1b[0m reset inside the line,
+      // otherwise inner resets (from colorize, dim timestamp) kill the outer dim
+      finalLine = `\x1b[2m${finalLine.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
+    }
 
     // Пишем
     if (level === 'error') process.stderr.write(finalLine)

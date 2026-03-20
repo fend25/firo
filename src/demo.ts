@@ -9,6 +9,8 @@ log.info('Server started')
 // 3. Добавляем глобальный контекст (мутация)
 log.addContext('service', 'auth')
 log.info('Connected to DB')
+log.debug('Connected to DB - dimmed')
+log.debug('Connected to DB - dimmed', {ctx: [{key: 'debugInfo', value: 'connection pool established', options: {colorIndex: 2}}]})
 
 // 4. Создаем child (наследование)
 const userLog = log.child({ requestId: 123, ip: '127.0.0.1' })
