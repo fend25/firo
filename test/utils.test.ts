@@ -13,7 +13,7 @@ test('getColorIndex — deterministic', () => {
 })
 
 test('getColorIndex — in range 0..9', () => {
-  for (const str of ['a', 'foo', 'user-1', 'user-2', '', 'очень длинная строка']) {
+  for (const str of ['a', 'foo', 'user-1', 'user-2', '', 'a-very-long-string-value']) {
     const idx = getColorIndex(str)
     assert.ok(idx >= 0 && idx <= 9, `"${str}" gave index ${idx}`)
   }

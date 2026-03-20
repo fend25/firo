@@ -9,8 +9,8 @@ export type DevTransportConfig = {
 }
 
 export const createDevTransport = (config: DevTransportConfig = {}): TransportFn => {
-  // "Запекаем" настройки один раз при создании транспорта
-  const locale = config.locale ?? undefined // undefined = системная локаль
+  // Bake settings once at transport creation time
+  const locale = config.locale ?? undefined // undefined = system locale
   const timeOpts: Intl.DateTimeFormatOptions = {
     hour12: false,
     hour: '2-digit',
@@ -19,23 +19,22 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     ...(config.timeOptions || {}),
   }
 
-  // Возвращаем саму функцию транспорта (TransportFn)
   const transport: TransportFn = (level, context, msg, data, opts) => {
     const now = new Date()
 
-    // Формируем время. toLocaleTimeString использует настройки из замыкания
+    // Build timestamp using closed-over locale settings
     const timeString = now.toLocaleTimeString(locale, timeOpts)
     const ms = String(now.getMilliseconds()).padStart(3, '0')
     const timestamp = `${timeString}.${ms}`
 
-    // 1. Собираем контекст в радугу
+    // 1. Render context badges
     const contextStr = context.map(ctx => {
       const key = ctx.options?.omitKey ? '' : `${ctx.key}:`
       const content = `${key}${ctx.value}`
       return colorize(`[${content}]`, ctx.options.colorIndex)
     }).join(' ')
 
-    // 2. Форматируем Payload
+    // 2. Format payload
     if (level === 'error' && data === undefined) {
       const realError = wrapToError(msg)
       data = realError
@@ -51,7 +50,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
       dataStr = inspect(data, inspectOptions)
     }
 
-    // 3. Собираем строку
+    // 3. Assemble the output line
     const parts = [
       dim(`[${timestamp}]`),
       contextStr,
@@ -70,7 +69,6 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
       finalLine = `\x1b[2m${finalLine.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
     }
 
-    // Пишем
     if (level === 'error') process.stderr.write(finalLine)
     else process.stdout.write(finalLine)
   }
@@ -80,9 +78,9 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 
 // --- PROD Transport (JSON) ---
 
-// Для JSON фабрика обычно не нужна (там ISO время),
-// но для единообразия API можно тоже сделать createJsonTransport,
-// если вдруг захотим "запекать" туда статические поля (версию app, env и т.д.)
+// A factory is not strictly required for JSON (it uses ISO time),
+// but the consistent createX() API makes it easy to bake in static fields
+// (app version, env, etc.) in the future.
 
 const wrapToError = (obj: unknown): Error => {
   if (obj instanceof Error) return obj
@@ -91,7 +89,7 @@ const wrapToError = (obj: unknown): Error => {
   )
 }
 
-// Хелпер для правильной сериализации ошибки
+// Serialize an error-like value to a plain object
 const serializeError = (_err: unknown) => {
   const err = wrapToError(_err)
   return {

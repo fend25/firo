@@ -15,8 +15,8 @@ export type LoggerConfig = {
   minLevelInDev?: LogLevel
   minLevelInProd?: LogLevel
   mode?: 'dev' | 'prod'
-  transport?: TransportFn // Можно передать кастомный транспорт
-  devTransportConfig?: DevTransportConfig // Опции для dev транспорта
+  transport?: TransportFn // Custom transport override
+  devTransportConfig?: DevTransportConfig // Options for the dev transport
 }
 
 export interface ILogger {
@@ -24,7 +24,7 @@ export interface ILogger {
   info: (msg: string, data?: unknown, opts?: LogOptions) => void
   warn: (msg: string, data?: unknown, opts?: LogOptions) => void
 
-  // Сигнатуры перегрузки для error
+  // Overload signatures for error
   error(err: Error | unknown): void
 
   error(msg: string, err?: Error | unknown, opts?: LogOptions): void
@@ -61,11 +61,11 @@ const appendContextWithInvokeContext = (
 }
 
 export const createLogger = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): ILogger => {
-  // Мутабельный массив контекста данного инстанса.
-  // Мы копируем родительский контекст, чтобы изменения здесь не ломали родителя.
+  // Mutable context array for this instance.
+  // We copy the parent context so mutations here do not affect the parent.
   const context: ContextItemWithOptions[] = [...parentContext.map(fillContextItem)]
 
-  // Резолвим транспорт один раз при создании
+  // Resolve transport once at creation time
   const transport: TransportFn = config.transport
     ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport())
 
@@ -85,7 +85,6 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
     if (index !== -1) context.splice(index, 1)
   }
 
-  // Рекурсивное создание ребенка
   const child = (ctx: Record<string, ContextValue>): ILogger => {
     const newItems: ContextItem[] = Object.entries(ctx).map(([key, value]) => ({
       key,
@@ -93,8 +92,8 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
       options: { colorIndex: getColorIndex(key) }
     }))
 
-    // Важно: передаем текущий context + новые айтемы.
-    // Передаем тот же transport, чтобы не пересоздавать его.
+    // Pass current context snapshot + new items.
+    // Reuse the same transport instance to avoid recreating it.
     return createLogger({transport, minLevel: minLevelName}, [...context, ...newItems])
   }
 
@@ -111,7 +110,7 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
     transport('warn', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
   }
 
-  // Реализация error (принимает union types, а интерфейс ILogger разруливает типы для юзера)
+  // error implementation accepts a union type; ILogger overloads expose a clean API to callers
   const error = (msgOrError: string | Error | unknown, err?: Error | unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.error) return
     transport('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)

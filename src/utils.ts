@@ -24,8 +24,8 @@ export type ContextItem = {
 export type ContextItemWithOptions = ContextItem & { options: Required<ContextOptions> }
 
 export type LogOptions = {
-  pretty?: boolean // Включить multiline для data
-  ctx?: ContextItem[] // Дополнительный контекст для данного лога
+  pretty?: boolean // Enable multiline output for data
+  ctx?: ContextItem[] // Additional per-call context items
 }
 
 export type TransportFn = (
@@ -51,24 +51,23 @@ const COLORS = [
   94, // Bright Blue
 ]
 
-// Простой хэш строки в индекс цвета
+// Hash a string to a stable color index
 export const getColorIndex = (str: string): number => {
   let hash = 0
 
-  // Генерирует целочисленный хэш из строки.
-  // Использует побитовый сдвиг для умножения на 31: (x << 5) - x === x * 31.
-  // Это обеспечивает хорошее распределение значений для выбора цвета,
-  // чтобы похожие строки (напр. "user-1", "user-2") получали разные индексы.
+  // Produces an integer hash from a string.
+  // Uses a bit-shift to multiply by 31: (x << 5) - x === x * 31.
+  // This gives good distribution for color selection so that
+  // similar strings (e.g. "user-1", "user-2") land on different indices.
   str.split('').forEach(char => {
     hash = char.charCodeAt(0) + ((hash << 5) - hash)
   })
   return Math.abs(hash % COLORS.length)
 }
 
-// Обертка в цвет ANSI
 export const colorize = (text: string, colorIndex: number): string => `\x1b[${COLORS[colorIndex]}m${text}\x1b[0m`
 
-// Раскрашивание уровня (ошибки красным, остальное без изменений)
+// Maps log level to ANSI color: error=red, warn=yellow, debug=dim, info=plain
 export const colorizeLevel = (level: LogLevel, text: string): string => {
   if (level === 'info') return text
 
@@ -78,12 +77,10 @@ export const colorizeLevel = (level: LogLevel, text: string): string => {
     case 'warn':
       return `\x1b[33m${text}\x1b[0m` // Yellow
     case 'debug':
-      // return `\x1b[36m${text}\x1b[0m` // Cyan
-      return `\x1b[2m${text}\x1b[0m` // dimmed
+      return `\x1b[2m${text}\x1b[0m`  // Dim
     default:
       return text
   }
 }
 
-// Тусклый текст
 export const dim = (text: string) => `\x1b[2m${text}\x1b[0m`
