@@ -1,4 +1,4 @@
-import { createLogger } from './index.ts'
+import {createLogger} from './src/index.ts'
 
 // 1. Инициализация (по дефолту dev)
 const log = createLogger({ mode: 'dev' })
