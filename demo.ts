@@ -1,4 +1,4 @@
-import {createLogger} from './src/index.ts'
+import {createLogger} from './dist'
 
 // 1. Create logger (dev mode by default)
 const log = createLogger({ mode: 'dev' })
