@@ -4,7 +4,7 @@
 
 The logger for Node.js, Bun and Deno you've been looking for.
 
-Zero-config and beautiful **dev** output - out of the box. Structured and robust NDJSON for **prod**.
+Beautiful **dev** output - out of the box. High-load ready NDJSON for **prod**.
 
 Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant, refined sibling of the logging forest.
 
