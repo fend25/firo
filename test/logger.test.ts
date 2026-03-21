@@ -310,7 +310,7 @@ test('dev transport — timestamp format HH:MM:SS.mmm', () => {
   const log = createLogger({ mode: 'dev' })
   const { stdout } = captureOutput(() => log.info('test'))
 
-  assert.ok(/\d{2}:\d{2}:\d{2}\.\d{3}/.test(stdout), `No timestamp in: ${stdout}`)
+  assert.ok(/\d{2}:\d{2}:\d{2}[.,]\d{3}/.test(stdout), `No timestamp in: ${stdout}`)
 })
 
 test('dev transport — context rendered as [key:value]', () => {
@@ -365,6 +365,33 @@ test('dev transport — ends with newline', () => {
   const { stdout } = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
+})
+
+test('dev transport — handles circular structures without crashing', () => {
+  const log = createLogger({ mode: 'dev' })
+  const obj: any = { a: 1 }
+  obj.self = obj // circular reference
+
+  const { stderr } = captureOutput(() => {
+    log.error('fail', obj)
+    log.error(obj) // edge case where msg is the circular object
+  })
+  
+  assert.ok(stderr.includes('[Circular *1]'))
+})
+
+test('dev transport — applies devTransportConfig time options', () => {
+  const log = createLogger({ 
+    mode: 'dev',
+    devTransportConfig: {
+      timeOptions: { hour: 'numeric', minute: undefined, second: undefined, fractionalSecondDigits: undefined }
+    }
+  })
+  
+  const { stdout } = captureOutput(() => log.info('test'))
+  
+  // E.g. [14] instead of [14:32:01.123]
+  assert.match(stdout, /\[\d{1,2}\]/)
 })
 
 // --- JSON transport ---
@@ -431,6 +458,43 @@ test('json transport — ends with newline', () => {
   const { stdout } = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
+})
+
+test('json transport — handles circular structures without crashing', () => {
+  const log = createLogger({ mode: 'prod' })
+  const obj: any = { a: 1 }
+  obj.self = obj
+
+  const { stdout } = captureOutput(() => {
+    log.error('fail', obj)
+    log.info('info with circular', obj)
+  })
+
+  // We have 2 lines of JSON output, both should be parsed without issue
+  const lines = stdout.trim().split('\n')
+  assert.strictEqual(lines.length, 2)
+  
+  const parsedErr = JSON.parse(lines[0])
+  assert.strictEqual(parsedErr.level, 'error')
+  assert.ok(typeof parsedErr.data === 'string' && parsedErr.data.includes('[Circular *1]'))
+
+  const parsedInfo = JSON.parse(lines[1])
+  assert.strictEqual(parsedInfo.level, 'info')
+  assert.ok(typeof parsedInfo.data === 'string' && parsedInfo.data.includes('[Circular *1]'))
+})
+
+test('json transport — error preserves data object', () => {
+  const log = createLogger({ mode: 'prod' })
+  
+  const { stdout } = captureOutput(() => {
+    log.error('Payment failed', { userId: 123, reason: 'timeout' })
+  })
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.level, 'error')
+  assert.strictEqual(parsed.message, 'Payment failed')
+  assert.strictEqual(parsed.data.userId, 123)
+  assert.strictEqual(parsed.data.reason, 'timeout')
 })
 
 // --- Mode-based transport selection ---

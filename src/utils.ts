@@ -65,7 +65,7 @@ export const getColorIndex = (str: string): number => {
   return Math.abs(hash % COLORS.length)
 }
 
-export const colorize = (text: string, colorIndex: number): string => `\x1b[${COLORS[colorIndex]}m${text}\x1b[0m`
+export const colorize = (text: string, colorIndex: number): string => `\x1b[${COLORS[colorIndex % COLORS.length]}m${text}\x1b[0m`
 
 // Maps log level to ANSI color: error=red, warn=yellow, debug=dim, info=plain
 export const colorizeLevel = (level: LogLevel, text: string): string => {

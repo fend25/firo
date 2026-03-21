@@ -1,4 +1,4 @@
-import {createLogger} from './dist'
+import {createLogger} from './src'
 
 // 1. Create logger (dev mode by default)
 const log = createLogger({ mode: 'dev' })
@@ -51,3 +51,34 @@ try {
 const deepLog = userLog.child({ module: 'billing' }).child({ txId: 999 })
 deepLog.info('Transaction processed')
 // Output: [service:auth] [requestId:123] [ip:...] [module:billing] [txId:999] Transaction processed
+
+// 9.1. Circular structures
+const circularObj: any = {status: 'failed'}
+circularObj.self = circularObj // Create circular reference
+
+log.info('This circular object would crash JSON.stringify:', circularObj)
+log.error('This circular object would crash JSON.stringify:', circularObj)
+prod.error('Prod gracefully stringifies circular refs too:', circularObj)
+
+// 9.2. Prod error with data
+prod.error('Payment failed', new Error('timeout'), {
+  ctx: [{key: 'txId', value: 'tx-999'}]
+})
+prod.error('Data without error object', {userId: 42, reason: 'banned'})
+
+// 9.3. Out of bounds color index (safely wraps around)
+log.info('Safe colors', undefined, {
+  ctx: [
+    {key: 'index10', value: 'wraps', options: {colorIndex: 10}},
+    {key: 'index99', value: 'safe', options: {colorIndex: 99}}
+  ]
+})
+
+// 9.4. Custom time formatting
+const customLog = createLogger({
+  mode: 'dev',
+  devTransportConfig: {
+    timeOptions: {hour: '2-digit', minute: '2-digit', second: undefined, fractionalSecondDigits: undefined}
+  }
+})
+customLog.info('Custom time format (HH:MM)')

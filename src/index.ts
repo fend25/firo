@@ -60,6 +60,10 @@ const appendContextWithInvokeContext = (
   return [...context, ...invokeContext?.map(fillContextItem)]
 }
 
+export { createDevTransport, createJsonTransport } from './transports.ts'
+export type { DevTransportConfig } from './transports.ts'
+export type { LogLevel, ContextValue, ContextOptions, ContextItem, ContextItemWithOptions, LogOptions, TransportFn } from './utils.ts'
+
 export const createLogger = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): ILogger => {
   // Mutable context array for this instance.
   // We copy the parent context so mutations here do not affect the parent.
@@ -67,7 +71,7 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport())
+    ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel

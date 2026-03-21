@@ -1,4 +1,5 @@
 import {inspect} from 'node:util'
+import process from 'node:process'
 import {colorize, colorizeLevel, dim, TransportFn} from './utils.ts'
 
 // --- DEV Transport Factory ---
@@ -16,6 +17,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    fractionalSecondDigits: 3,
     ...(config.timeOptions || {}),
   }
 
@@ -23,9 +25,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     const now = new Date()
 
     // Build timestamp using closed-over locale settings
-    const timeString = now.toLocaleTimeString(locale, timeOpts)
-    const ms = String(now.getMilliseconds()).padStart(3, '0')
-    const timestamp = `${timeString}.${ms}`
+    const timestamp = now.toLocaleTimeString(locale, timeOpts)
 
     // 1. Render context badges
     const contextStr = context.map(ctx => {
@@ -82,10 +82,18 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 // but the consistent createX() API makes it easy to bake in static fields
 // (app version, env, etc.) in the future.
 
+const safeStringify = (obj: unknown): string => {
+  try {
+    return JSON.stringify(obj)
+  } catch {
+    return inspect(obj)
+  }
+}
+
 const wrapToError = (obj: unknown): Error => {
   if (obj instanceof Error) return obj
   return new Error(
-    (typeof obj === 'object' && obj !== null) ? JSON.stringify(obj) : String(obj)
+    (typeof obj === 'object' && obj !== null) ? safeStringify(obj) : String(obj)
   )
 }
 
@@ -119,19 +127,42 @@ export const createJsonTransport = (): TransportFn => (level, context, msg: stri
         msg instanceof Error
           ? msg.message
           : (typeof msg === 'object' && msg !== null)
-            ? JSON.stringify(msg)
+            ? safeStringify(msg)
             : String(msg)
       )
-    const error = data instanceof Error || (typeof data === 'object' && data !== null)
-      ? serializeError(data)
-      : serializeError(msg)
 
     logRecord.message = message
-    logRecord.error = error
+
+    if (data instanceof Error) {
+      logRecord.error = serializeError(data)
+    } else if (msg instanceof Error) {
+      logRecord.error = serializeError(msg)
+      if (data !== undefined) logRecord.data = data
+    } else {
+      logRecord.error = serializeError(msg)
+      if (data !== undefined) logRecord.data = data
+    }
   } else {
-    logRecord.message = String(msg)
-    logRecord.data = data
+    logRecord.message = (typeof msg === 'object' && msg !== null) ? safeStringify(msg) : String(msg)
+    if (data !== undefined) {
+      logRecord.data = data instanceof Error ? serializeError(data) : data
+    }
   }
 
-  process.stdout.write(JSON.stringify(logRecord) + '\n')
+  try {
+    process.stdout.write(JSON.stringify(logRecord) + '\n')
+  } catch {
+    // If stringify fails (likely circular JSON in data or context)
+    if (logRecord.data) logRecord.data = inspect(logRecord.data)
+    try {
+      process.stdout.write(JSON.stringify(logRecord) + '\n')
+    } catch {
+      process.stdout.write(JSON.stringify({
+        timestamp: logRecord.timestamp,
+        level,
+        message: logRecord.message,
+        error: 'Failed to serialize log record'
+      }) + '\n')
+    }
+  }
 }

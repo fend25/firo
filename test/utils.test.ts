@@ -29,6 +29,11 @@ test('colorize wraps with ANSI code', () => {
   assert.strictEqual(colorize('hi', 0), '\x1b[36mhi\x1b[0m') // index 0 = cyan (36)
 })
 
+test('colorize handles out of bounds index safely', () => {
+  assert.strictEqual(colorize('hi', 10), '\x1b[36mhi\x1b[0m') // index 10 wraps to 0
+  assert.strictEqual(colorize('hi', 15), '\x1b[96mhi\x1b[0m') // wraps correctly
+})
+
 test('colorizeLevel — info returns unchanged', () => {
   assert.strictEqual(colorizeLevel('info', 'hello'), 'hello')
 })

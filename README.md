@@ -221,16 +221,20 @@ const log = createLogger({ transport: myTransport })
 
 ## Dev transport options
 
-Fine-tune the dev transport's timestamp format:
+Fine-tune the dev transport's timestamp format. For example, to remove seconds and milliseconds:
 
 ```ts
-import { createLogger, createDevTransport } from '@cm/logger'
+import { createLogger } from '@cm/logger'
 
 const log = createLogger({
-  transport: createDevTransport({
-    locale: 'en-US',
-    timeOptions: { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' },
-  })
+  devTransportConfig: {
+    timeOptions: {
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: undefined, 
+      fractionalSecondDigits: undefined 
+    }
+  }
 })
 ```
 
