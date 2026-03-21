@@ -16,6 +16,9 @@ build/
 .env.*
 !.env.example
 
+# Scripts
+*.sh
+
 # Editor
 .vscode/
 .idea/

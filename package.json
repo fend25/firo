@@ -1,6 +1,18 @@
 {
   "name": "firo",
-  "version": "0.1.0",
+  "version": "0.0.1",
+  "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
+  "keywords": [
+    "logger",
+    "pino",
+    "firo",
+    "dx",
+    "structured-logging",
+    "ndjson",
+    "color",
+    "zero-dependencies"
+  ],
+  "author": "Alex Saft <fend25@gmail.com>",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",

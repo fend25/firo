@@ -1,10 +1,14 @@
 # firo 🌲
 
-**Spruce up your logs.** The logger for Node.js, Bun and Deno you've been looking for.
+**Spruce up your logs!** 
 
-Zero-config and beautiful dev output out of the box. Structured and robust NDJSON for prod.
+The logger for Node.js, Bun and Deno you've been looking for.
+
+Zero-config and beautiful **dev** output - out of the box. Structured and robust NDJSON for **prod**.
 
 Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant, refined sibling of the logging forest.
+
+![firo output](image.png)
 
 ## Features
 
@@ -24,10 +28,10 @@ Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant
 npm install firo
 yarn add firo
 pnpm add firo
-npx jsr add @cm/firo
+npx jsr add @fend/firo
 
 # or, for deno:
-deno add jsr:@cm/firo
+deno add jsr:@fend/firo
 ```
 
 
