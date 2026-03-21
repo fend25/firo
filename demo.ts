@@ -2,6 +2,7 @@ import {createLogger} from './dist'
 
 // 1. Create logger (dev mode by default)
 const log = createLogger({ mode: 'dev' })
+const prod = createLogger({mode: 'prod'})
 
 // 2. Simple log
 log.info('Server started')
@@ -9,7 +10,11 @@ log.info('Server started')
 // 3. Add global context (mutation)
 log.addContext('service', 'auth')
 log.info('Connected to DB')
-log.debug('Connected to DB - dimmed')
+
+log.debug('Connected to DB - dimmed', {}, {ctx: [{key: 'user', value: 42}]})
+prod.debug('Connected to DB - dimmed', {}, {ctx: [{key: 'user', value: 42}]})
+prod.debug('Connected to DB - dimmed', {}, {ctx: [{key: 'user', value: 42}]})
+
 log.debug('Connected to DB - dimmed', {ctx: [{key: 'debugInfo', value: 'connection pool established', options: {colorIndex: 2}}]})
 
 // 4. Create child logger (inherits parent context)

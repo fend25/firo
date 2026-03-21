@@ -1,28 +1,33 @@
 # @cm/logger
 
-A structured logger with a human face. Beautiful colored output in development, clean NDJSON in production — same API, zero config.
+The logger for Node.js, Bun and Deno you've been looking for.
+
+Zero-config and beautiful dev output out of the box. Structured and robust NDJSON for prod.
 
 ## Features
 
 - **Dev mode** — colored, timestamped, human-readable output with context badges
 - **Prod mode** — structured NDJSON, one record per line, ready for log aggregators
-- **Context system** — attach key/value pairs that appear in every subsequent log line
+- **Context system** — attach key/value pairs that beautifully appear in every subsequent log line
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
-- **Level filtering** — per-mode overrides (`minLevelInDev`, `minLevelInProd`)
-- **Custom transports** — swap the output layer entirely
-- **Zero dependencies**
+- **Severity Level filtering** — globally or per-mode thresholds to reduce noise
+- **Custom transports** — good dev and prod outputs out of the box, easily configurable or replaceable if needed.
+- **Zero dependencies** — small and fast, no bloat, no native addons. Works on Node.js, Bun and Deno.
 
 ## Install
 
 ```bash
+# for node.js, one of:
 npm install @cm/logger
+yarn add @cm/logger
+pnpm add @cm/logger
+npx jsr add @cm/logger
+
+# or, for deno:
+deno add jsr:@cm/logger
 ```
 
-```bash
-# JSR
-npx jsr add @cm/logger
-```
 
 ## Quick start
 
@@ -76,7 +81,7 @@ log.error('Query failed', new Error('timeout'))
 Four levels, in order: `debug` → `info` → `warn` → `error`.
 
 ```ts
-log.debug('Cache miss', { key: 'user:42' })
+log.debug('Cache miss', { user: 42, requestId: 'req-123' })
 log.info('Request received')
 log.warn('Retry attempt', { n: 3 })
 log.error('Unhandled exception', err)
@@ -166,7 +171,7 @@ Add context to a single log call without touching the logger's state:
 
 ```ts
 log.info('User action', payload, {
-  ctx: [{ key: 'userId', value: 'u-42', options: { omitKey: true } }]
+  ctx: [{ key: 'userId', value: 42, options: { omitKey: true } }]
 })
 ```
 
@@ -174,7 +179,7 @@ Works on all log methods including `error`:
 
 ```ts
 log.error('Payment failed', err, {
-  ctx: [{ key: 'orderId', value: 'ord-7' }]
+  ctx: [{ key: 'orderId', value: 7 }]
 })
 ```
 
@@ -228,6 +233,32 @@ const log = createLogger({
   })
 })
 ```
+
+## Why not pino?
+
+pino is great — especially in production. It's fast, structured, and pairs well with any log aggregator.
+
+The problem is development. pino's default output is raw JSON — one giant line per log entry, completely unreadable. So you reach for `pino-pretty` - which is a distinct package and it's strange, configure a transport, maybe wrap it in a script... and suddenly you're maintaining logging infrastructure just to see what your app is doing.
+
+And even then: one log entry with a moderately sized object takes 10-20 lines. Three requests in, your terminal is a wall of JSON and you can't see anything.
+
+**@cm/logger is the opposite approach:**
+
+- Context lives in colored badges `[requestId:abc]` `[userId:42]` on the same line — not dirty mixing with line-specific object fields in a single JSON tree
+- Data objects are printed inline with `util.inspect`, compact by default — one line, not twenty. And may be expanded.
+- Debug lines are visually dimmed — high-signal logs stay readable
+- Zero config to get beautiful output — just `createLogger()` and go
+
+**Message first, data second.** pino's signature is `log.info(obj, 'message')` — object comes first. Here it's `log.info('message', obj)` — always message first. Because the message is the point: it tells you *what happened* and *why you're even looking at this entry*. The data object is supporting evidence — useful, but secondary. Reading a wall of `{ userId: 42, token: '...', createdAt: '...' }` before you even know what event you're looking at is backwards.
+
+**On child loggers:** in pino, `child()` is the only way to add context. Here you have a choice — 
+mutate the instance with `addContext()` for module-level context, or use `child()` when you need 
+a fully isolated snapshot. This is especially useful for traceable entities: create a pre-tuned 
+child logger with `requestId`, `userId`, or `traceId` already attached, store it in request context 
+(e.g. AsyncLocalStorage), and every log call downstream gets the right context automatically — 
+no threading through function arguments.
+
+In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the difference.
 
 ## API reference
 

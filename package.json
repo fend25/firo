@@ -19,7 +19,8 @@
     "build": "tsup",
     "publish:jsr": "pnpm dlx jsr publish",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx demo.ts"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
