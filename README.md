@@ -4,7 +4,7 @@
 
 The logger for Node.js, Bun and Deno you've been looking for.
 
-Beautiful **dev** output - out of the box. High-load ready NDJSON for **prod**.
+Beautiful **dev** output - out of the box. Structured NDJSON for **prod**.
 
 Think of it as pino, but with brilliant DX.
 
@@ -14,14 +14,14 @@ Beautiful colors in dev mode:
 
 ![firo in action](https://github.com/fend25/firo/blob/main/img/dev_mode.png?raw=true)
 
-With fast and robust NDJSON flushing in production mode:
+Structured NDJSON in production mode:
 
 ![firo prod output](https://github.com/fend25/firo/blob/main/img/prod_mode.png)
 
 ## Features
 
 - **Dev mode** — colored, timestamped, human-readable output with context badges
-- **Prod mode** — structured NDJSON, one record per line, with non-blocking buffered output for high-load production
+- **Prod mode** — structured NDJSON, one record per line
 - **Context system** — attach key/value pairs that beautifully appear in every subsequent log line
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
@@ -84,19 +84,6 @@ const log = createLogger({ mode: 'prod' })
 
 log.info('Request handled', { status: 200 })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"Request handled","data":{"status":200}}
-```
-
-#### Async mode (Prod only)
-
-Prod mode uses asynchronous buffered output by default. Logs are queued and flushed when the stream is ready (handling backpressure), avoiding event loop blocking. All buffered logs are flushed synchronously if the process exits or crashes.
-
-If you need synchronous writes (e.g. for debugging), disable it explicitly:
-
-```ts
-const log = createLogger({
-  mode: 'prod',
-  async: false // Force synchronous output
-})
 ```
 
 ## Best practices
@@ -386,7 +373,6 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
 | `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
-| `async` | `boolean` | `true` in prod | Enable non-blocking output (Prod mode only) |
 | `useAllColors` | `boolean` | `false` | Use all 30 palette colors for auto-hash (instead of 10 safe) |
 
 ## License

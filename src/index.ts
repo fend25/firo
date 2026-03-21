@@ -27,8 +27,6 @@ export type LoggerConfig = {
   transport?: TransportFn // Custom transport override
   /** Options for fine-tuning the built-in development transport (e.g. timestamp format). */
   devTransportConfig?: DevTransportConfig // Options for the dev transport
-  /** Enable asynchronous/buffered output for 'prod' mode to avoid event loop blocking. */
-  async?: boolean
   /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to false (safe 10-color palette). */
   useAllColors?: boolean
 }
@@ -88,7 +86,7 @@ const fillContextItem = (item: ContextItem, useAllColors = false): ContextItemWi
   }
 }
 
-export type { DevTransportConfig, JsonTransportConfig } from './transports.ts'
+export type { DevTransportConfig } from './transports.ts'
 export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
 export { FIRO_COLORS } from './utils.ts'
 export {createDevTransport, createJsonTransport} from './transports.ts'
@@ -111,7 +109,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport({ async: config.async ?? true }) : createDevTransport(config.devTransportConfig))
+    ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel

@@ -1,6 +1,5 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import fs from 'node:fs'
 import {colorize, colorizeLevel, dim, TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from './utils.ts'
 
 // --- DEV Transport Factory ---
@@ -170,65 +169,12 @@ const buildRecord = (
 }
 
 /**
- * Configuration for the JSON transport.
- */
-export type JsonTransportConfig = {
-  /** 
-   * Enable asynchronous/buffered output. 
-   * When true, logs are queued and written when the stream is ready (handling backpressure).
-   */
-  async?: boolean
-  /** Maximum number of log lines to buffer when async is enabled. Defaults to 1000. */
-  maxQueueSize?: number
-}
-
-/**
  * Creates a built-in transport optimized for production.
  * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
  *
- * @param config Optional configuration for async and buffering behavior.
  * @returns A `TransportFn` that writes JSON to standard output.
  */
-export const createJsonTransport = (config: JsonTransportConfig = {}): TransportFn => {
-  const queue: string[] = []
-  const maxQueueSize = config.maxQueueSize ?? 1000
-  let isDraining = false
-
-  const flush = () => {
-    if (queue.length === 0 || isDraining) return
-
-    while (queue.length > 0) {
-      const line = queue.shift()!
-      const ok = process.stdout.write(line)
-
-      if (!ok) {
-        isDraining = true
-        process.stdout.once('drain', () => {
-          isDraining = false
-          flush()
-        })
-        return
-      }
-    }
-  }
-
-  const flushSync = () => {
-    while (queue.length > 0) {
-      const line = queue.shift()
-      if (line) {
-        try {
-          fs.writeSync(1, line)
-        } catch { /* ignore if stdout is closed */ }
-      }
-    }
-  }
-
-  // Ensure any buffered logs are written before the process exits.
-  if (config.async) {
-    process.on('beforeExit', flushSync)
-    process.on('exit', flushSync)
-  }
-
+export const createJsonTransport = (): TransportFn => {
   return (level, context, msg, data) => {
     const record = buildRecord(level, context, msg, data)
     let line: string
@@ -250,15 +196,6 @@ export const createJsonTransport = (config: JsonTransportConfig = {}): Transport
       }
     }
 
-    if (!config.async) {
-      process.stdout.write(line)
-      return
-    }
-
-    queue.push(line)
-    if (queue.length > maxQueueSize) {
-      queue.shift() // Drop oldest logs if queue is too large
-    }
-    flush()
+    process.stdout.write(line)
   }
 }
