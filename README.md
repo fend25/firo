@@ -12,11 +12,11 @@ Think of it as pino, but with brilliant DX.
 
 Beautiful colors in dev mode:
 
-![firo in action](img/dev_mode.png)
+![firo in action](https://github.com/fend25/firo/blob/main/img/dev_mode.png?raw=true)
 
 With fast and robust NDJSON flushing in production mode:
 
-![firo prod output](img/prod_mode.png)
+![firo prod output](https://github.com/fend25/firo/blob/main/img/prod_mode.png)
 
 ## Features
 
@@ -65,7 +65,7 @@ Dev output:
 [14:32:01.206] [ERROR] Connection lost Error: ECONNREFUSED
 ```
 
-[[toc]]
+[toc]
 
 ## Modes
 
@@ -301,7 +301,7 @@ const log = createLogger({
 
 Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
 
-![firo color palette](img/color_madness.png)
+![firo color palette](https://github.com/fend25/firo/blob/main/img/color_madness.png)
 
 ### How it works
 
