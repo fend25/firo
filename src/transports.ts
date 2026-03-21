@@ -4,11 +4,23 @@ import {colorize, colorizeLevel, dim, TransportFn} from './utils.ts'
 
 // --- DEV Transport Factory ---
 
+/**
+ * Configuration options for the development transport.
+ */
 export type DevTransportConfig = {
+  /** The locale used for formatting the timestamp. Defaults to the system locale. */
   locale?: string
+  /** Standard Intl.DateTimeFormatOptions to customize the timestamp output. */
   timeOptions?: Intl.DateTimeFormatOptions
 }
 
+/**
+ * Creates a built-in transport optimized for local development.
+ * Emits colored, human-readable strings to stdout/stderr.
+ *
+ * @param config Optional configuration for the transport, like timestamp formats.
+ * @returns A `TransportFn` that writes to the console.
+ */
 export const createDevTransport = (config: DevTransportConfig = {}): TransportFn => {
   // Bake settings once at transport creation time
   const locale = config.locale ?? undefined // undefined = system locale
@@ -108,6 +120,12 @@ const serializeError = (_err: unknown) => {
   }
 }
 
+/**
+ * Creates a built-in transport optimized for production.
+ * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
+ *
+ * @returns A `TransportFn` that writes JSON to standard output.
+ */
 export const createJsonTransport = (): TransportFn => (level, context, msg: string | Error | unknown, data?) => {
   const contextObj = context.reduce((acc, item) => {
     acc[item.key] = item.value

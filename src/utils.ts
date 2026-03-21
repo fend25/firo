@@ -1,5 +1,6 @@
 // --- Types ---
 
+/** Available log severity levels. */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 export const LOG_LEVELS = {
@@ -9,25 +10,36 @@ export const LOG_LEVELS = {
   error: 50,
 } as const
 
+/** Primitive types allowed as context values. */
 export type ContextValue = string | number | boolean | null | undefined
 
+/** Options to customize how a context item is rendered. */
 export type ContextOptions = {
+  /** A stable number (0-9) used to assign a consistent color to the badge. */
   colorIndex?: number
+  /** If true, the key name is hidden, and only the value is printed. */
   omitKey?: boolean
 }
 
+/** A single key-value context entry. */
 export type ContextItem = {
   key: string
   value: ContextValue
   options?: ContextOptions
 }
+
+/** A context entry where options have been fully resolved with defaults. */
 export type ContextItemWithOptions = ContextItem & { options: Required<ContextOptions> }
 
+/** Options that can be passed to a single log call. */
 export type LogOptions = {
+  /** If true, stringifies objects with indentation and line breaks. */
   pretty?: boolean // Enable multiline output for data
+  /** Additional inline context items applied only to this log call. */
   ctx?: ContextItem[] // Additional per-call context items
 }
 
+/** The signature of a function responsible for formatting and emitting log records. */
 export type TransportFn = (
   level: LogLevel,
   context: ContextItemWithOptions[],
