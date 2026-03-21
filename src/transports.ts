@@ -64,16 +64,17 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     }
 
     // 3. Assemble the output line
+    const msgStr = typeof msg === 'object' && msg !== null ? inspect(msg, {colors: true, compact: true, breakLength: Infinity}) : String(msg)
     const parts = [
       `[${timestamp}]`, // Normal (not dimmed)
       contextStr,
       level === 'error'
-        ? colorizeLevel('error', `[ERROR] ${msg}`)
+        ? colorizeLevel('error', `[ERROR] ${msgStr}`)
         : level === 'warn'
-          ? colorizeLevel('warn', `[WARN] ${msg}`)
+          ? colorizeLevel('warn', `[WARN] ${msgStr}`)
           : level === 'debug'
-            ? colorizeLevel('debug', msg as string)
-            : `${msg}`,
+            ? colorizeLevel('debug', msgStr)
+            : msgStr,
       level === 'debug' && dataStr 
         ? `\x1b[2m${dataStr.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
         : dataStr
@@ -197,7 +198,7 @@ export const createJsonTransport = (config: JsonTransportConfig = {}): Transport
     if (queue.length === 0 || isDraining) return
 
     while (queue.length > 0) {
-      const line = queue[0]
+      const line = queue.shift()!
       const ok = process.stdout.write(line)
 
       if (!ok) {
@@ -208,7 +209,6 @@ export const createJsonTransport = (config: JsonTransportConfig = {}): Transport
         })
         return
       }
-      queue.shift()
     }
   }
 
@@ -227,9 +227,6 @@ export const createJsonTransport = (config: JsonTransportConfig = {}): Transport
   if (config.async) {
     process.on('beforeExit', flushSync)
     process.on('exit', flushSync)
-    // Also try to flush on common signals
-    process.on('SIGINT', () => { flushSync(); process.exit(0) })
-    process.on('SIGTERM', () => { flushSync(); process.exit(0) })
   }
 
   return (level, context, msg, data) => {

@@ -75,6 +75,10 @@ test('async: true — defers writing when stdout is full (backpressure)', () => 
 
     // 5. Now the second log should appear
     assert.ok(stdout.includes('second'), 'Second log should be flushed after drain event')
+    
+    // 6. Ensure no duplicates of 'second' log
+    const matches = stdout.match(/second/g)
+    assert.strictEqual(matches?.length, 1, 'Second log should only be written once')
   } finally {
     process.stdout.write = origWrite
   }

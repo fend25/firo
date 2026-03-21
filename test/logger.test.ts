@@ -394,6 +394,17 @@ test('dev transport — applies devTransportConfig time options', () => {
   assert.match(stdout, /\[\d{1,2}\]/)
 })
 
+test('dev transport — stringifies object message instead of [object Object]', () => {
+  const log = createLogger({mode: 'dev'})
+  //@ts-expect-error
+  const {stdout} = captureOutput(() => log.info({status: 'ok', count: 42}))
+
+  assert.ok(!stdout.includes('[object Object]'), 'Should not output [object Object]')
+  assert.ok(stdout.includes('status:'), 'Should output object properties')
+  assert.ok(stdout.includes("'ok'"), 'Should output object values')
+  assert.ok(stdout.includes('42'), 'Should output numeric values')
+})
+
 // --- JSON transport ---
 
 test('json transport — valid NDJSON', () => {
