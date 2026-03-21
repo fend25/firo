@@ -1,11 +1,12 @@
 {
-  "name": "firo",
+  "name": "@fend/firo",
   "version": "0.0.1",
   "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
   "keywords": [
     "logger",
     "pino",
     "firo",
+    "fend",
     "dx",
     "structured-logging",
     "ndjson",

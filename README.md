@@ -26,9 +26,9 @@ Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant
 
 ```bash
 # for node.js, one of:
-npm install firo
-yarn add firo
-pnpm add firo
+npm install @fend/firo
+yarn add @fend/firo
+pnpm add @fend/firo
 npx jsr add @fend/firo
 
 # or, for deno:
@@ -39,7 +39,7 @@ deno add jsr:@fend/firo
 ## Quick start
 
 ```ts
-import { createLogger } from 'firo'
+import { createLogger } from '@fend/firo'
 
 const log = createLogger()
 
@@ -99,7 +99,7 @@ The best way to use **firo** in web frameworks is to store a child logger in `As
 
 ```ts
 import { AsyncLocalStorage } from 'node:util'
-import { createLogger } from 'firo'
+import { createLogger } from '@fend/firo'
 
 const logger = createLogger()
 const storage = new AsyncLocalStorage()
@@ -255,7 +255,7 @@ log.error(someUnknownThing)
 Provide your own transport function to take full control of output:
 
 ```ts
-import type { TransportFn } from 'firo'
+import type { TransportFn } from '@fend/firo'
 
 const myTransport: TransportFn = (level, context, msg, data, opts) => {
   // level:   'debug' | 'info' | 'warn' | 'error'
@@ -273,7 +273,7 @@ const log = createLogger({ transport: myTransport })
 Fine-tune the dev transport's timestamp format. For example, to remove seconds and milliseconds:
 
 ```ts
-import { createLogger } from 'firo'
+import { createLogger } from '@fend/firo'
 
 const log = createLogger({
   devTransportConfig: {
@@ -300,7 +300,7 @@ By default, firo auto-assigns colors from 10 terminal-safe base colors using a h
 But the real fun starts when you reach for `FIRO_COLORS` — a named palette of 30 colors with full IDE autocomplete:
 
 ```ts
-import { createLogger, FIRO_COLORS } from 'firo'
+import { createLogger, FIRO_COLORS } from '@fend/firo'
 
 const log = createLogger()
 
