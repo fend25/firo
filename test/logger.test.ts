@@ -568,3 +568,26 @@ test('child loggers are also callable', () => {
   assert.strictEqual(calls[0].msg, 'child log')
   assert.strictEqual(calls[0].context[0].key, 'reqId')
 })
+
+test('callable shorthand respects minLevel', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn, minLevel: 'warn' })
+
+  log('suppressed')
+
+  assert.strictEqual(calls.length, 0)
+})
+
+test('falsy context values (0, false, null) are preserved', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn })
+
+  log.addContext('count', 0)
+  log.addContext('active', false)
+  log.addContext('tag', null)
+  log.info('test')
+
+  assert.strictEqual(calls[0].context[0].value, 0)
+  assert.strictEqual(calls[0].context[1].value, false)
+  assert.strictEqual(calls[0].context[2].value, null)
+})

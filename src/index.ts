@@ -92,17 +92,10 @@ const appendContextWithInvokeContext = (
 }
 
 export { createDevTransport, createJsonTransport } from './transports.ts'
-export type { DevTransportConfig } from './transports.ts'
+export type { DevTransportConfig, JsonTransportConfig } from './transports.ts'
 export type { LogLevel, ContextValue, ContextOptions, ContextItem, ContextItemWithOptions, LogOptions, TransportFn } from './utils.ts'
 
-/**
- * Creates a new logger instance with the specified configuration.
- *
- * @param config Optional configuration for log levels, mode, and transports.
- * @param parentContext Internal parameter used when creating child loggers.
- * @returns A fully configured `ILogger` instance.
- */
-export const createLogger = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): ILogger => {
+const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]): ILogger => {
   // Mutable context array for this instance.
   // We copy the parent context so mutations here do not affect the parent.
   const context: ContextItemWithOptions[] = [...parentContext.map(fillContextItem)]
@@ -136,7 +129,7 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
 
     // Pass current context snapshot + new items.
     // Reuse the same transport instance to avoid recreating it.
-    return createLogger({transport, minLevel: minLevelName}, [...context, ...newItems])
+    return createLoggerInternal({transport, minLevel: minLevelName}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {
@@ -172,4 +165,14 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
     getContext,
     removeFromContext: removeKeyFromContext,
   })
+}
+
+/**
+ * Creates a new logger instance with the specified configuration.
+ *
+ * @param config Optional configuration for log levels, mode, and transports.
+ * @returns A fully configured `ILogger` instance.
+ */
+export const createLogger = (config: LoggerConfig = {}): ILogger => {
+  return createLoggerInternal(config, [])
 }
