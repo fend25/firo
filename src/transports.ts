@@ -42,9 +42,9 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 
     // 1. Render context badges
     const contextStr = context.map(ctx => {
-      const key = ctx.options?.omitKey ? '' : `${ctx.key}:`
+      const key = ctx.omitKey ? '' : `${ctx.key}:`
       const content = `${key}${ctx.value}`
-      return colorize(`[${content}]`, ctx.options.colorIndex, ctx.options.color)
+      return colorize(`[${content}]`, ctx.colorIndex, ctx.color)
     }).join(' ')
 
     // 2. Format payload

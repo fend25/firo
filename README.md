@@ -6,20 +6,27 @@ The logger for Node.js, Bun and Deno you've been looking for.
 
 Beautiful **dev** output - out of the box. High-load ready NDJSON for **prod**.
 
-Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant, refined sibling of the logging forest.
+Think of it as pino, but with brilliant DX.
 
-![firo output](image.png)
+## Demo
+
+Beautiful colors in dev mode:
+
+![firo in action](img/dev_mode.png)
+
+With fast and robust NDJSON flushing in production mode:
+
+![firo prod output](img/prod_mode.png)
 
 ## Features
 
 - **Dev mode** — colored, timestamped, human-readable output with context badges
-- **Prod mode** — structured NDJSON, one record per line, ready for log aggregators
-- **Async mode** — non-blocking buffered output for high-load production
+- **Prod mode** — structured NDJSON, one record per line, with non-blocking buffered output for high-load production
 - **Context system** — attach key/value pairs that beautifully appear in every subsequent log line
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
 - **Severity Level filtering** — globally or per-mode thresholds to reduce noise
-- **30 named colors** — `FIRO_COLORS` palette with IDE autocomplete, plus raw ANSI/256-color/truecolor support
+- **30 named colors** — `FIRO_COLORS` palette with great handpicked colors, plus raw ANSI/256-color/truecolor support
 - **Zero dependencies** — small and fast, no bloat, no native addons. Works on Node.js, Bun and Deno.
 
 ## Install
@@ -29,12 +36,13 @@ Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant
 npm install @fend/firo
 yarn add @fend/firo
 pnpm add @fend/firo
-npx jsr add @fend/firo
 
-# or, for deno:
+# for bun:
+bun add @fend/firo
+
+# for deno:
 deno add jsr:@fend/firo
 ```
-
 
 ## Quick start
 
@@ -56,6 +64,8 @@ Dev output:
 [14:32:01.205] [WARN] Disk usage high { used: '92%' }
 [14:32:01.206] [ERROR] Connection lost Error: ECONNREFUSED
 ```
+
+[[toc]]
 
 ## Modes
 
@@ -80,16 +90,16 @@ log.info('Request handled', { status: 200 })
 
 #### Async mode (Prod only)
 
-For high-load applications, you can enable asynchronous buffered output. This avoids blocking the event loop when writing to `stdout`, which is critical for maintaining low latency.
+Prod mode uses asynchronous buffered output by default. Logs are queued and flushed when the stream is ready (handling backpressure), avoiding event loop blocking. All buffered logs are flushed synchronously if the process exits or crashes.
+
+If you need synchronous writes (e.g. for debugging), disable it explicitly:
 
 ```ts
-const log = createLogger({ 
-  mode: 'prod', 
-  async: true // Enables non-blocking buffered output
+const log = createLogger({
+  mode: 'prod',
+  async: false // Force synchronous output
 })
 ```
-
-When `async` is enabled, logs are queued and flushed when the stream is ready (handling backpressure). We also ensure all buffered logs are flushed synchronously if the process exits or crashes.
 
 ## Best practices
 
@@ -166,15 +176,15 @@ log.info('Started')
 
 ```ts
 // Hide the key, show only the value — useful for IDs
-log.addContext({ key: 'userId', value: 'u-789', options: { omitKey: true } })
+log.addContext({ key: 'userId', value: 'u-789', omitKey: true })
 // renders as [u-789] instead of [userId:u-789]
 
 // Pin a specific color (0–9)
-log.addContext({ key: 'region', value: 'eu-west', options: { colorIndex: 3 } })
+log.addContext({ key: 'region', value: 'west', colorIndex: 3 })
 
 // Use any ANSI color — 256-color, truecolor, anything
-log.addContext({ key: 'trace', value: 'abc', options: { color: '38;5;214' } })       // 256-color orange
-log.addContext({ key: 'span', value: 'xyz', options: { color: '38;2;255;100;0' } })  // truecolor
+log.addContext({ key: 'trace', value: 'abc', color: '38;5;214' })       // 256-color orange
+log.addContext({ key: 'span', value: 'xyz', color: '38;2;255;100;0' })  // truecolor
 ```
 
 ### Remove context
@@ -220,7 +230,7 @@ Add context to a single log call without touching the logger's state:
 
 ```ts
 log.info('User action', payload, {
-  ctx: [{ key: 'userId', value: 42, options: { omitKey: true } }]
+  ctx: [{ key: 'userId', value: 42, omitKey: true }]
 })
 ```
 
@@ -291,7 +301,7 @@ const log = createLogger({
 
 Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
 
-![firo color palette](color_madness.png)
+![firo color palette](img/color_madness.png)
 
 ### How it works
 
@@ -304,9 +314,9 @@ import { createLogger, FIRO_COLORS } from '@fend/firo'
 
 const log = createLogger()
 
-log.addContext('region', 'eu-west', { color: FIRO_COLORS.coral })
-log.addContext('service', 'auth',   { color: FIRO_COLORS.skyBlue })
-log.addContext('env', 'staging',    { color: FIRO_COLORS.lavender })
+log.addContext('region', { value: 'west', color: FIRO_COLORS.coral })
+log.addContext('service', { value: 'auth', color: FIRO_COLORS.skyBlue })
+log.addContext('env', { value: 'staging', color: FIRO_COLORS.lavender })
 ```
 
 Available colors: `cyan`, `green`, `yellow`, `magenta`, `blue`, `brightCyan`, `brightGreen`, `brightYellow`, `brightMagenta`, `brightBlue`, `orange`, `pink`, `lilac`, `skyBlue`, `mint`, `salmon`, `lemon`, `lavender`, `sage`, `coral`, `teal`, `rose`, `pistachio`, `mauve`, `aqua`, `gold`, `thistle`, `seafoam`, `tangerine`, `periwinkle`.
@@ -316,8 +326,8 @@ Available colors: `cyan`, `green`, `yellow`, `magenta`, `blue`, `brightCyan`, `b
 You can also pass any raw ANSI code as a string — 256-color, truecolor, go wild:
 
 ```ts
-log.addContext('trace', 'abc', { color: '38;5;214' })         // 256-color
-log.addContext('span', 'xyz', { color: '38;2;255;105;180' })  // truecolor pink
+log.addContext('trace', { value: 'abc', color: '38;5;214' })         // 256-color
+log.addContext('span', { value: 'xyz', color: '38;2;255;105;180' })  // truecolor pink
 ```
 
 ### Use all 30 colors for auto-hash
@@ -329,7 +339,7 @@ const log = createLogger({ useAllColors: true })
 
 // Now every context key auto-gets one of 30 distinct colors
 log.addContext('service', 'api')
-log.addContext('region', 'eu-west')
+log.addContext('region', 'west')
 log.addContext('pod', 'web-3')
 // Each badge is a different, beautiful color — no configuration needed
 ```
@@ -363,7 +373,7 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `warn(msg, data?, opts?)` | Warning |
 | `error(msg, err?, opts?)` | Error — also accepts `error(err)` |
 | `child(ctx)` | Create a child logger with additional context |
-| `addContext(key, value, opts?)` | Add a context entry |
+| `addContext(key, value \| ext)` | Add a context entry |
 | `addContext(item)` | Add a context entry (object form) |
 | `removeFromContext(key)` | Remove a context entry by key |
 | `getContext()` | Return the current context array |
@@ -378,7 +388,7 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
 | `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
-| `async` | `boolean` | `false` | Enable non-blocking output (Prod mode only) |
+| `async` | `boolean` | `true` in prod | Enable non-blocking output (Prod mode only) |
 | `useAllColors` | `boolean` | `false` | Use all 30 palette colors for auto-hash (instead of 10 safe) |
 
 ## License

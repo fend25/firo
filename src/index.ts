@@ -1,4 +1,5 @@
 import {
+  ContextExtension,
   ContextItem, ContextItemWithOptions,
   ContextOptions,
   ContextValue,
@@ -36,7 +37,7 @@ export type LoggerConfig = {
  * The logger instance returned by `createLogger`.
  * It is a callable object: calling `log(msg)` is shorthand for `log.info(msg)`.
  */
-export interface ILogger {
+export interface Firo {
   /** Shorthand for log.info() */
   (msg: string, data?: unknown, opts?: LogOptions): void
 
@@ -58,10 +59,10 @@ export interface ILogger {
    * Create a scoped child logger that inherits the current logger's context.
    * @param ctx An object containing key-value pairs to add to the child logger's context.
    */
-  child: (ctx: Record<string, ContextValue>) => ILogger
+  child: (ctx: Record<string, ContextValue | ContextExtension>) => Firo
 
   /** Add a context entry by key and value. */
-  addContext(key: string, value: ContextValue, opts?: ContextOptions): void
+  addContext(key: string, value: ContextValue | ContextExtension): void
 
   /** Add a context entry using the object form. */
   addContext(item: ContextItem): void
@@ -71,27 +72,28 @@ export interface ILogger {
 
   /** Return the current context array attached to this logger instance. */
   getContext(): ContextItem[]
+
+  /** Check if a context key exists in the current logger instance. */
+  hasInContext(key: string): boolean
 }
 
 const fillContextItem = (item: ContextItem, useAllColors = false): ContextItemWithOptions => {
   return {
     ...item,
-    options: {
-      colorIndex: (item.options && typeof item.options.colorIndex === 'number')
-        ? item.options.colorIndex
-        : getColorIndex(item.key, useAllColors),
-      color: item.options?.color,
-      omitKey: item.options?.omitKey ?? false,
-    }
+    colorIndex: (typeof item.colorIndex === 'number')
+      ? item.colorIndex
+      : getColorIndex(item.key, useAllColors),
+    color: item.color,
+    omitKey: item.omitKey ?? false,
   }
 }
 
-export { createDevTransport, createJsonTransport } from './transports.ts'
 export type { DevTransportConfig, JsonTransportConfig } from './transports.ts'
+export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
 export { FIRO_COLORS } from './utils.ts'
-export type { LogLevel, ContextValue, ContextOptions, ContextItem, ContextItemWithOptions, LogOptions, TransportFn } from './utils.ts'
+export {createDevTransport, createJsonTransport} from './transports.ts'
 
-const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]): ILogger => {
+const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]): Firo => {
   const useAllColors = config.useAllColors ?? false
   const fill = (item: ContextItem) => fillContextItem(item, useAllColors)
 
@@ -109,7 +111,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport({ async: config.async }) : createDevTransport(config.devTransportConfig))
+    ?? (config.mode === 'prod' ? createJsonTransport({ async: config.async ?? true }) : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel
@@ -117,9 +119,20 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
   const minLevel = LOG_LEVELS[minLevelName ?? 'debug']
 
   const getContext = () => context
+  const hasInContext = (key: string) => context.some(ctx => ctx.key === key)
 
-  const addContext = (key: string | ContextItem, value?: ContextValue, options?: ContextOptions) => {
-    let item = (typeof key === 'string') ? {key, value, options} : key
+  const addContext = (key: string | ContextItem, value?: ContextValue | ContextExtension) => {
+    let item: ContextItem
+    if (typeof key === 'string') {
+      if (value !== null && value !== undefined && typeof value === 'object') {
+        const { value: extValue, ...opts } = value as ContextExtension
+        item = {key, value: extValue, ...opts}
+      } else {
+        item = {key, value: value as ContextValue}
+      }
+    } else {
+      item = key
+    }
     context.push(fill(item))
   }
   const removeKeyFromContext = (key: string) => {
@@ -127,12 +140,14 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
     if (index !== -1) context.splice(index, 1)
   }
 
-  const child = (ctx: Record<string, ContextValue>): ILogger => {
-    const newItems: ContextItem[] = Object.entries(ctx).map(([key, value]) => ({
-      key,
-      value,
-      options: { colorIndex: getColorIndex(key, useAllColors) }
-    }))
+  const child = (ctx: Record<string, ContextValue | ContextExtension>): Firo => {
+    const newItems: ContextItem[] = Object.entries(ctx).map(([key, value]) => {
+      if (value !== null && value !== undefined && typeof value === 'object') {
+        const { value: extValue, ...opts } = value as ContextExtension
+        return {key, value: extValue, ...opts}
+      }
+      return {key, value: value as ContextValue, colorIndex: getColorIndex(key, useAllColors)}
+    })
 
     // Pass current context snapshot + new items.
     // Reuse the same transport instance to avoid recreating it.
@@ -152,7 +167,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
     transport('warn', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
   }
 
-  // error implementation accepts a union type; ILogger overloads expose a clean API to callers
+  // error implementation accepts a union type; Firo overloads expose a clean API to callers
   const error = (msgOrError: string | Error | unknown, err?: Error | unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.error) return
     transport('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)
@@ -160,7 +175,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   const logInstance = ((msg: string, data?: unknown, opts?: LogOptions) => {
     info(msg, data, opts)
-  }) as ILogger
+  }) as Firo
 
   return Object.assign(logInstance, {
     debug,
@@ -178,8 +193,8 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
  * Creates a new logger instance with the specified configuration.
  *
  * @param config Optional configuration for log levels, mode, and transports.
- * @returns A fully configured `ILogger` instance.
+ * @returns A fully configured `Firo` instance.
  */
-export const createLogger = (config: LoggerConfig = {}): ILogger => {
+export const createLogger = (config: LoggerConfig = {}): Firo => {
   return createLoggerInternal(config, [])
 }

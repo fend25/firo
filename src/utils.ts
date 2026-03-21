@@ -27,11 +27,19 @@ export type ContextOptions = {
 export type ContextItem = {
   key: string
   value: ContextValue
-  options?: ContextOptions
-}
+} & Partial<ContextOptions>
+
+/** Configuration options for creating a logger child instance. */
+export type ContextExtension = {
+  value: ContextValue
+} & Partial<ContextOptions>
 
 /** A context entry where options have been fully resolved with defaults. */
-export type ContextItemWithOptions = ContextItem & {options: Required<Pick<ContextOptions, 'colorIndex' | 'omitKey'>> & Pick<ContextOptions, 'color'>}
+export type ContextItemWithOptions = ContextItem & {
+  colorIndex: number
+  omitKey: boolean
+  color?: string
+}
 
 /** Options that can be passed to a single log call. */
 export type LogOptions = {
