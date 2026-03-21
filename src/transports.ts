@@ -1,6 +1,7 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {colorize, colorizeLevel, dim, TransportFn} from './utils.ts'
+import fs from 'node:fs'
+import {colorize, colorizeLevel, dim, TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from './utils.ts'
 
 // --- DEV Transport Factory ---
 
@@ -90,10 +91,6 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 
 // --- PROD Transport (JSON) ---
 
-// A factory is not strictly required for JSON (it uses ISO time),
-// but the consistent createX() API makes it easy to bake in static fields
-// (app version, env, etc.) in the future.
-
 const safeStringify = (obj: unknown): string => {
   try {
     return JSON.stringify(obj)
@@ -121,12 +118,14 @@ const serializeError = (_err: unknown) => {
 }
 
 /**
- * Creates a built-in transport optimized for production.
- * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
- *
- * @returns A `TransportFn` that writes JSON to standard output.
+ * Builds a structured log record object from log call arguments.
  */
-export const createJsonTransport = (): TransportFn => (level, context, msg: string | Error | unknown, data?) => {
+const buildRecord = (
+  level: LogLevel,
+  context: ContextItemWithOptions[],
+  msg: string | Error | unknown,
+  data?: Error | unknown
+): Record<string, unknown> => {
   const contextObj = context.reduce((acc, item) => {
     acc[item.key] = item.value
     return acc
@@ -167,20 +166,103 @@ export const createJsonTransport = (): TransportFn => (level, context, msg: stri
     }
   }
 
-  try {
-    process.stdout.write(JSON.stringify(logRecord) + '\n')
-  } catch {
-    // If stringify fails (likely circular JSON in data or context)
-    if (logRecord.data) logRecord.data = inspect(logRecord.data)
-    try {
-      process.stdout.write(JSON.stringify(logRecord) + '\n')
-    } catch {
-      process.stdout.write(JSON.stringify({
-        timestamp: logRecord.timestamp,
-        level,
-        message: logRecord.message,
-        error: 'Failed to serialize log record'
-      }) + '\n')
+  return logRecord
+}
+
+/**
+ * Configuration for the JSON transport.
+ */
+export type JsonTransportConfig = {
+  /** 
+   * Enable asynchronous/buffered output. 
+   * When true, logs are queued and written when the stream is ready (handling backpressure).
+   */
+  async?: boolean
+  /** Maximum number of log lines to buffer when async is enabled. Defaults to 1000. */
+  maxQueueSize?: number
+}
+
+/**
+ * Creates a built-in transport optimized for production.
+ * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
+ *
+ * @param config Optional configuration for async and buffering behavior.
+ * @returns A `TransportFn` that writes JSON to standard output.
+ */
+export const createJsonTransport = (config: JsonTransportConfig = {}): TransportFn => {
+  const queue: string[] = []
+  const maxQueueSize = config.maxQueueSize ?? 1000
+  let isDraining = false
+
+  const flush = () => {
+    if (queue.length === 0 || isDraining) return
+
+    while (queue.length > 0) {
+      const line = queue[0]
+      const ok = process.stdout.write(line)
+
+      if (!ok) {
+        isDraining = true
+        process.stdout.once('drain', () => {
+          isDraining = false
+          flush()
+        })
+        return
+      }
+      queue.shift()
     }
+  }
+
+  const flushSync = () => {
+    while (queue.length > 0) {
+      const line = queue.shift()
+      if (line) {
+        try {
+          fs.writeSync(1, line)
+        } catch { /* ignore if stdout is closed */ }
+      }
+    }
+  }
+
+  // Ensure any buffered logs are written before the process exits.
+  if (config.async) {
+    process.on('beforeExit', flushSync)
+    process.on('exit', flushSync)
+    // Also try to flush on common signals
+    process.on('SIGINT', () => { flushSync(); process.exit(0) })
+    process.on('SIGTERM', () => { flushSync(); process.exit(0) })
+  }
+
+  return (level, context, msg, data) => {
+    const record = buildRecord(level, context, msg, data)
+    let line: string
+
+    try {
+      line = JSON.stringify(record) + '\n'
+    } catch {
+      // Fallback for circular structures
+      if (record.data) record.data = inspect(record.data)
+      try {
+        line = JSON.stringify(record) + '\n'
+      } catch {
+        line = JSON.stringify({
+          timestamp: record.timestamp,
+          level,
+          message: record.message,
+          error: 'Failed to serialize log record'
+        }) + '\n'
+      }
+    }
+
+    if (!config.async) {
+      process.stdout.write(line)
+      return
+    }
+
+    queue.push(line)
+    if (queue.length > maxQueueSize) {
+      queue.shift() // Drop oldest logs if queue is too large
+    }
+    flush()
   }
 }

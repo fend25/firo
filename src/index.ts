@@ -26,6 +26,8 @@ export type LoggerConfig = {
   transport?: TransportFn // Custom transport override
   /** Options for fine-tuning the built-in development transport (e.g. timestamp format). */
   devTransportConfig?: DevTransportConfig // Options for the dev transport
+  /** Enable asynchronous/buffered output for 'prod' mode to avoid event loop blocking. */
+  async?: boolean
 }
 
 /**
@@ -103,7 +105,7 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport(config.devTransportConfig))
+    ?? (config.mode === 'prod' ? createJsonTransport({ async: config.async }) : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel
