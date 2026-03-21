@@ -44,7 +44,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     const contextStr = context.map(ctx => {
       const key = ctx.options?.omitKey ? '' : `${ctx.key}:`
       const content = `${key}${ctx.value}`
-      return colorize(`[${content}]`, ctx.options.colorIndex)
+      return colorize(`[${content}]`, ctx.options.colorIndex, ctx.options.color)
     }).join(' ')
 
     // 2. Format payload

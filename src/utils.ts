@@ -15,8 +15,10 @@ export type ContextValue = string | number | boolean | null | undefined
 
 /** Options to customize how a context item is rendered. */
 export type ContextOptions = {
-  /** A stable number (0-9) used to assign a consistent color to the badge. */
+  /** Color index: 0-9 for safe terminal colors (used by auto-hash), 10+ for extended 256-color palette. */
   colorIndex?: number
+  /** Raw ANSI color code string (e.g. '36', '38;5;214', '38;2;255;100;0'). Takes priority over colorIndex. */
+  color?: string
   /** If true, the key name is hidden, and only the value is printed. */
   omitKey?: boolean
 }
@@ -29,7 +31,7 @@ export type ContextItem = {
 }
 
 /** A context entry where options have been fully resolved with defaults. */
-export type ContextItemWithOptions = ContextItem & { options: Required<ContextOptions> }
+export type ContextItemWithOptions = ContextItem & {options: Required<Pick<ContextOptions, 'colorIndex' | 'omitKey'>> & Pick<ContextOptions, 'color'>}
 
 /** Options that can be passed to a single log call. */
 export type LogOptions = {
@@ -50,21 +52,47 @@ export type TransportFn = (
 
 // --- Colors & formatting utils ---
 
-const COLORS = [
-  36, // Cyan
-  32, // Green
-  33, // Yellow
-  35, // Magenta
-  34, // Blue
-  96, // Bright Cyan
-  92, // Bright Green
-  93, // Bright Yellow
-  95, // Bright Magenta
-  94, // Bright Blue
-]
+/** Named color palette for context badges. Use with `color` option: `{ color: FIRO_COLORS.skyBlue }` */
+export const FIRO_COLORS = {
+  // Basic ANSI (safe for any terminal)
+  cyan: '36',
+  green: '32',
+  yellow: '33',
+  magenta: '35',
+  blue: '34',
+  brightCyan: '96',
+  brightGreen: '92',
+  brightYellow: '93',
+  brightMagenta: '95',
+  brightBlue: '94',
+  // Extended 256-color palette
+  orange: '38;5;214',
+  pink: '38;5;213',
+  lilac: '38;5;141',
+  skyBlue: '38;5;117',
+  mint: '38;5;156',
+  salmon: '38;5;210',
+  lemon: '38;5;228',
+  lavender: '38;5;183',
+  sage: '38;5;114',
+  coral: '38;5;209',
+  teal: '38;5;116',
+  rose: '38;5;219',
+  pistachio: '38;5;150',
+  mauve: '38;5;175',
+  aqua: '38;5;81',
+  gold: '38;5;222',
+  thistle: '38;5;182',
+  seafoam: '38;5;115',
+  tangerine: '38;5;208',
+  periwinkle: '38;5;147',
+} as const
+
+const COLORS_LIST = Object.values(FIRO_COLORS)
+const SAFE_COLORS_COUNT = 10
 
 // Hash a string to a stable color index
-export const getColorIndex = (str: string): number => {
+export const getColorIndex = (str: string, useAllColors = false): number => {
   let hash = 0
 
   // Produces an integer hash from a string.
@@ -74,10 +102,14 @@ export const getColorIndex = (str: string): number => {
   str.split('').forEach(char => {
     hash = char.charCodeAt(0) + ((hash << 5) - hash)
   })
-  return Math.abs(hash % COLORS.length)
+  const range = useAllColors ? COLORS_LIST.length : SAFE_COLORS_COUNT
+  return Math.abs(hash % range)
 }
 
-export const colorize = (text: string, colorIndex: number): string => `\x1b[${COLORS[colorIndex % COLORS.length]}m${text}\x1b[0m`
+export const colorize = (text: string, colorIndex: number, color?: string): string => {
+  const code = color ?? (COLORS_LIST[colorIndex] || COLORS_LIST[colorIndex % SAFE_COLORS_COUNT])
+  return `\x1b[${code}m${text}\x1b[0m`
+}
 
 // Maps log level to ANSI color: error=red, warn=yellow, info=plain
 export const colorizeLevel = (level: LogLevel, text: string): string => {

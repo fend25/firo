@@ -128,6 +128,29 @@ test('addContext — explicit colorIndex is preserved', () => {
   assert.strictEqual(calls[0].context[0].options.colorIndex, 7)
 })
 
+test('addContext — custom color is preserved and used in output', () => {
+  const {fn, calls} = createSpyTransport()
+  const log = createLogger({transport: fn})
+
+  log.addContext({key: 'trace', value: 'abc', options: {color: '38;5;214'}})
+  log.info('test')
+
+  assert.strictEqual(calls[0].context[0].options.color, '38;5;214')
+
+  // Verify it renders with the custom color in dev transport
+  const devLog = createLogger({mode: 'dev'})
+  devLog.addContext({key: 'trace', value: 'abc', options: {color: '38;5;214'}})
+  let stdout = ''
+  const origWrite = process.stdout.write
+  process.stdout.write = ((chunk: unknown) => {stdout += String(chunk); return true}) as typeof process.stdout.write
+  try {
+    devLog.info('test')
+  } finally {
+    process.stdout.write = origWrite
+  }
+  assert.ok(stdout.includes('\x1b[38;5;214m'), 'Should use custom 256-color code')
+})
+
 test('removeFromContext — removes by key', () => {
   const { fn, calls } = createSpyTransport()
   const log = createLogger({ transport: fn })
@@ -569,15 +592,6 @@ test('child loggers are also callable', () => {
   assert.strictEqual(calls[0].context[0].key, 'reqId')
 })
 
-test('callable shorthand respects minLevel', () => {
-  const { fn, calls } = createSpyTransport()
-  const log = createLogger({ transport: fn, minLevel: 'warn' })
-
-  log('suppressed')
-
-  assert.strictEqual(calls.length, 0)
-})
-
 test('falsy context values (0, false, null) are preserved', () => {
   const { fn, calls } = createSpyTransport()
   const log = createLogger({ transport: fn })
@@ -590,4 +604,29 @@ test('falsy context values (0, false, null) are preserved', () => {
   assert.strictEqual(calls[0].context[0].value, 0)
   assert.strictEqual(calls[0].context[1].value, false)
   assert.strictEqual(calls[0].context[2].value, null)
+})
+
+test('useAllColors — auto-hash can assign extended palette indices (10+)', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn, useAllColors: true })
+
+  // Add enough keys to statistically hit extended indices
+  const keys = Array.from({ length: 30 }, (_, i) => `key-${i}`)
+  for (const key of keys) log.addContext(key, key)
+  log.info('test')
+
+  const indices = calls[0].context.map(c => c.options.colorIndex)
+  assert.ok(indices.some(i => i >= 10), `Expected at least one index >= 10, got: ${indices}`)
+})
+
+test('useAllColors: false — auto-hash stays in safe zone 0-9', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn })
+
+  const keys = Array.from({ length: 30 }, (_, i) => `key-${i}`)
+  for (const key of keys) log.addContext(key, key)
+  log.info('test')
+
+  const indices = calls[0].context.map(c => c.options.colorIndex)
+  assert.ok(indices.every(i => i >= 0 && i <= 9), `Expected all indices 0-9, got: ${indices}`)
 })

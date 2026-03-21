@@ -28,6 +28,8 @@ export type LoggerConfig = {
   devTransportConfig?: DevTransportConfig // Options for the dev transport
   /** Enable asynchronous/buffered output for 'prod' mode to avoid event loop blocking. */
   async?: boolean
+  /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to false (safe 10-color palette). */
+  useAllColors?: boolean
 }
 
 /**
@@ -71,34 +73,39 @@ export interface ILogger {
   getContext(): ContextItem[]
 }
 
-const fillContextItem = (item: ContextItem): ContextItemWithOptions => {
+const fillContextItem = (item: ContextItem, useAllColors = false): ContextItemWithOptions => {
   return {
     ...item,
     options: {
       colorIndex: (item.options && typeof item.options.colorIndex === 'number')
         ? item.options.colorIndex
-        : getColorIndex(item.key),
+        : getColorIndex(item.key, useAllColors),
+      color: item.options?.color,
       omitKey: item.options?.omitKey ?? false,
     }
   }
 }
 
-const appendContextWithInvokeContext = (
-  context: ContextItemWithOptions[],
-  invokeContext?: ContextItem[]
-): ContextItemWithOptions[] => {
-  if (!invokeContext || invokeContext.length === 0) return context
-  return [...context, ...invokeContext?.map(fillContextItem)]
-}
-
 export { createDevTransport, createJsonTransport } from './transports.ts'
 export type { DevTransportConfig, JsonTransportConfig } from './transports.ts'
+export { FIRO_COLORS } from './utils.ts'
 export type { LogLevel, ContextValue, ContextOptions, ContextItem, ContextItemWithOptions, LogOptions, TransportFn } from './utils.ts'
 
 const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]): ILogger => {
+  const useAllColors = config.useAllColors ?? false
+  const fill = (item: ContextItem) => fillContextItem(item, useAllColors)
+
+  const appendContextWithInvokeContext = (
+    context: ContextItemWithOptions[],
+    invokeContext?: ContextItem[]
+  ): ContextItemWithOptions[] => {
+    if (!invokeContext || invokeContext.length === 0) return context
+    return [...context, ...invokeContext.map(fill)]
+  }
+
   // Mutable context array for this instance.
   // We copy the parent context so mutations here do not affect the parent.
-  const context: ContextItemWithOptions[] = [...parentContext.map(fillContextItem)]
+  const context: ContextItemWithOptions[] = [...parentContext.map(fill)]
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
@@ -113,7 +120,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   const addContext = (key: string | ContextItem, value?: ContextValue, options?: ContextOptions) => {
     let item = (typeof key === 'string') ? {key, value, options} : key
-    context.push(fillContextItem(item))
+    context.push(fill(item))
   }
   const removeKeyFromContext = (key: string) => {
     const index = context.findIndex(ctx => ctx.key === key)
@@ -124,12 +131,12 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
     const newItems: ContextItem[] = Object.entries(ctx).map(([key, value]) => ({
       key,
       value,
-      options: { colorIndex: getColorIndex(key) }
+      options: { colorIndex: getColorIndex(key, useAllColors) }
     }))
 
     // Pass current context snapshot + new items.
     // Reuse the same transport instance to avoid recreating it.
-    return createLoggerInternal({transport, minLevel: minLevelName}, [...context, ...newItems])
+    return createLoggerInternal({transport, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {

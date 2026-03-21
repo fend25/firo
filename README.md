@@ -19,6 +19,7 @@ Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
 - **Severity Level filtering** — globally or per-mode thresholds to reduce noise
+- **30 named colors** — `FIRO_COLORS` palette with IDE autocomplete, plus raw ANSI/256-color/truecolor support
 - **Zero dependencies** — small and fast, no bloat, no native addons. Works on Node.js, Bun and Deno.
 
 ## Install
@@ -170,6 +171,10 @@ log.addContext({ key: 'userId', value: 'u-789', options: { omitKey: true } })
 
 // Pin a specific color (0–9)
 log.addContext({ key: 'region', value: 'eu-west', options: { colorIndex: 3 } })
+
+// Use any ANSI color — 256-color, truecolor, anything
+log.addContext({ key: 'trace', value: 'abc', options: { color: '38;5;214' } })       // 256-color orange
+log.addContext({ key: 'span', value: 'xyz', options: { color: '38;2;255;100;0' } })  // truecolor
 ```
 
 ### Remove context
@@ -282,6 +287,53 @@ const log = createLogger({
 })
 ```
 
+## Color palette
+
+Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
+
+![firo color palette](color_madness.png)
+
+### How it works
+
+By default, firo auto-assigns colors from 10 terminal-safe base colors using a hash of the context key. Similar keys like `user-1` and `user-2` land on different colors automatically.
+
+But the real fun starts when you reach for `FIRO_COLORS` — a named palette of 30 colors with full IDE autocomplete:
+
+```ts
+import { createLogger, FIRO_COLORS } from 'firo'
+
+const log = createLogger()
+
+log.addContext('region', 'eu-west', { color: FIRO_COLORS.coral })
+log.addContext('service', 'auth',   { color: FIRO_COLORS.skyBlue })
+log.addContext('env', 'staging',    { color: FIRO_COLORS.lavender })
+```
+
+Available colors: `cyan`, `green`, `yellow`, `magenta`, `blue`, `brightCyan`, `brightGreen`, `brightYellow`, `brightMagenta`, `brightBlue`, `orange`, `pink`, `lilac`, `skyBlue`, `mint`, `salmon`, `lemon`, `lavender`, `sage`, `coral`, `teal`, `rose`, `pistachio`, `mauve`, `aqua`, `gold`, `thistle`, `seafoam`, `tangerine`, `periwinkle`.
+
+### Want even more variety?
+
+You can also pass any raw ANSI code as a string — 256-color, truecolor, go wild:
+
+```ts
+log.addContext('trace', 'abc', { color: '38;5;214' })         // 256-color
+log.addContext('span', 'xyz', { color: '38;2;255;105;180' })  // truecolor pink
+```
+
+### Use all 30 colors for auto-hash
+
+By default, auto-hash only picks from the 10 basic terminal-safe colors. If your terminal supports 256 colors (most modern terminals do), unleash the full palette:
+
+```ts
+const log = createLogger({ useAllColors: true })
+
+// Now every context key auto-gets one of 30 distinct colors
+log.addContext('service', 'api')
+log.addContext('region', 'eu-west')
+log.addContext('pod', 'web-3')
+// Each badge is a different, beautiful color — no configuration needed
+```
+
 ## Why not pino?
 
 **Pino** is Italian for *Pine*. It's a great, sturdy tree, especially in production. 
@@ -327,6 +379,7 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
 | `async` | `boolean` | `false` | Enable non-blocking output (Prod mode only) |
+| `useAllColors` | `boolean` | `false` | Use all 30 palette colors for auto-hash (instead of 10 safe) |
 
 ## License
 
