@@ -1,6 +1,6 @@
 {
   "name": "@fend/firo",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
   "keywords": [
     "firo",

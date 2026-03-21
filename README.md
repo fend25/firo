@@ -65,8 +65,6 @@ Dev output:
 [14:32:01.206] [ERROR] Connection lost Error: ECONNREFUSED
 ```
 
-[toc]
-
 ## Modes
 
 ### Dev (default)
