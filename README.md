@@ -4,6 +4,8 @@ The logger for Node.js, Bun and Deno you've been looking for.
 
 Zero-config and beautiful dev output out of the box. Structured and robust NDJSON for prod.
 
+Think of it as pino, but with brilliant DX.
+
 ## Features
 
 - **Dev mode** — colored, timestamped, human-readable output with context badges
@@ -290,3 +292,7 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `addContext(item)` | Add a context entry (object form) |
 | `removeFromContext(key)` | Remove a context entry by key |
 | `getContext()` | Return the current context array |
+
+## License
+
+MIT License
