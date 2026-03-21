@@ -1,40 +1,40 @@
-# @cm/logger
+# firo 🌲
 
-The logger for Node.js, Bun and Deno you've been looking for.
+**Spruce up your logs.** The logger for Node.js, Bun and Deno you've been looking for.
 
 Zero-config and beautiful dev output out of the box. Structured and robust NDJSON for prod.
 
-Think of it as pino, but with brilliant DX.
+Think of it as pino, but with brilliant DX. **firo** (from *Fir*) is the elegant, refined sibling of the logging forest.
 
 ## Features
 
 - **Dev mode** — colored, timestamped, human-readable output with context badges
 - **Prod mode** — structured NDJSON, one record per line, ready for log aggregators
+- **Async mode** — non-blocking buffered output for high-load production
 - **Context system** — attach key/value pairs that beautifully appear in every subsequent log line
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
 - **Severity Level filtering** — globally or per-mode thresholds to reduce noise
-- **Custom transports** — good dev and prod outputs out of the box, easily configurable or replaceable if needed.
 - **Zero dependencies** — small and fast, no bloat, no native addons. Works on Node.js, Bun and Deno.
 
 ## Install
 
 ```bash
 # for node.js, one of:
-npm install @cm/logger
-yarn add @cm/logger
-pnpm add @cm/logger
-npx jsr add @cm/logger
+npm install firo
+yarn add firo
+pnpm add firo
+npx jsr add @cm/firo
 
 # or, for deno:
-deno add jsr:@cm/logger
+deno add jsr:@cm/firo
 ```
 
 
 ## Quick start
 
 ```ts
-import { createLogger } from '@cm/logger'
+import { createLogger } from 'firo'
 
 const log = createLogger()
 
@@ -71,11 +71,47 @@ log.info('Request handled', { status: 200 })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"Request handled","data":{"status":200}}
 ```
 
-Error records include a serialized `error` field:
+#### Async mode (Prod only)
+
+For high-load applications, you can enable asynchronous buffered output. This avoids blocking the event loop when writing to `stdout`, which is critical for maintaining low latency.
 
 ```ts
-log.error('Query failed', new Error('timeout'))
-// {"timestamp":"...","level":"error","message":"Query failed","error":{"name":"Error","message":"timeout","stack":"..."}}
+const log = createLogger({ 
+  mode: 'prod', 
+  async: true // Enables non-blocking buffered output
+})
+```
+
+When `async` is enabled, logs are queued and flushed when the stream is ready (handling backpressure). We also ensure all buffered logs are flushed synchronously if the process exits or crashes.
+
+## Best practices
+
+### AsyncLocalStorage (Traceability)
+
+The best way to use **firo** in web frameworks is to store a child logger in `AsyncLocalStorage`. This gives you automatic traceability (e.g. `requestId`) across your entire call stack without passing the logger as an argument.
+
+```ts
+import { AsyncLocalStorage } from 'node:util'
+import { createLogger } from 'firo'
+
+const logger = createLogger()
+const storage = new AsyncLocalStorage()
+
+// Middleware example
+function middleware(req, res, next) {
+  const reqLog = logger.child({ 
+    requestId: req.headers['x-request-id'] || 'gen-123',
+    method: req.method
+  })
+  storage.run(reqLog, next)
+}
+
+// Deeply nested function
+function someService() {
+  const log = storage.getStore() ?? logger
+  log.info('Service action performed') 
+  // Output: [requestId:gen-123] [method:GET] Service action performed
+}
 ```
 
 ## Log levels
@@ -208,7 +244,7 @@ log.error(someUnknownThing)
 Provide your own transport function to take full control of output:
 
 ```ts
-import type { TransportFn } from '@cm/logger'
+import type { TransportFn } from 'firo'
 
 const myTransport: TransportFn = (level, context, msg, data, opts) => {
   // level:   'debug' | 'info' | 'warn' | 'error'
@@ -226,7 +262,7 @@ const log = createLogger({ transport: myTransport })
 Fine-tune the dev transport's timestamp format. For example, to remove seconds and milliseconds:
 
 ```ts
-import { createLogger } from '@cm/logger'
+import { createLogger } from 'firo'
 
 const log = createLogger({
   devTransportConfig: {
@@ -242,42 +278,23 @@ const log = createLogger({
 
 ## Why not pino?
 
-pino is great — especially in production. It's fast, structured, and pairs well with any log aggregator.
+**Pino** is Italian for *Pine*. It's a great, sturdy tree, especially in production. 
 
-The problem is development. pino's default output is raw JSON — one giant line per log entry, completely unreadable. So you reach for `pino-pretty` - which is a distinct package and it's strange, configure a transport, maybe wrap it in a script... and suddenly you're maintaining logging infrastructure just to see what your app is doing.
+But sometimes you need to **Spruce** up your development experience. 
 
-And even then: one log entry with a moderately sized object takes 10-20 lines. Three requests in, your terminal is a wall of JSON and you can't see anything.
+The problem with pino is development. Its default output is raw JSON — one giant line per log entry, completely unreadable. You reach for `pino-pretty`, and suddenly you're maintaining infrastructure just to see what your app is doing.
 
-**@cm/logger is the opposite approach:**
+**firo** is the **Fir** of logging: elegant, refined, and designed to look great in your terminal, while remaining a rock-solid performer in the production forest.
 
-- Context lives in colored badges `[requestId:abc]` `[userId:42]` on the same line — not dirty mixing with line-specific object fields in a single JSON tree
-- Data objects are printed inline with `util.inspect`, compact by default — one line, not twenty. And may be expanded.
-- Debug lines are visually dimmed — high-signal logs stay readable
-- Zero config to get beautiful output — just `createLogger()` and go
-
-**Message first, data second.** pino's signature is `log.info(obj, 'message')` — object comes first. Here it's `log.info('message', obj)` — always message first. Because the message is the point: it tells you *what happened* and *why you're even looking at this entry*. The data object is supporting evidence — useful, but secondary. Reading a wall of `{ userId: 42, token: '...', createdAt: '...' }` before you even know what event you're looking at is backwards.
-
-**On child loggers:** in pino, `child()` is the only way to add context. Here you have a choice — 
-mutate the instance with `addContext()` for module-level context, or use `child()` when you need 
-a fully isolated snapshot. This is especially useful for traceable entities: create a pre-tuned 
-child logger with `requestId`, `userId`, or `traceId` already attached, store it in request context 
-(e.g. AsyncLocalStorage), and every log call downstream gets the right context automatically — 
-no threading through function arguments.
+- **Context first:** Badges like `[requestId:abc]` stay on the same line — no messy JSON trees.
+- **Message first:** `log.info('message', data)` — because why you're looking at the log is more important than the supporting data.
+- **Compact by default:** Objects are printed inline, one line, not twenty.
+- **Visual hierarchy:** Debug lines are dimmed; high-signal logs stay readable.
+- **Zero config:** Beautiful output from the first second.
 
 In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the difference.
 
 ## API reference
-
-### `createLogger(config?)`
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `mode` | `'dev' \| 'prod'` | `'dev'` | Selects the built-in transport |
-| `minLevel` | `LogLevel` | `'debug'` | Minimum level for both modes |
-| `minLevelInDev` | `LogLevel` | — | Overrides `minLevel` in dev mode |
-| `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
-| `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
-| `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
 
 ### Logger methods
 
@@ -292,6 +309,18 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `addContext(item)` | Add a context entry (object form) |
 | `removeFromContext(key)` | Remove a context entry by key |
 | `getContext()` | Return the current context array |
+
+### `createLogger(config?)`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `mode` | `'dev' \| 'prod'` | `'dev'` | Selects the built-in transport |
+| `minLevel` | `LogLevel` | `'debug'` | Minimum level for both modes |
+| `minLevelInDev` | `LogLevel` | — | Overrides `minLevel` in dev mode |
+| `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
+| `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
+| `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
+| `async` | `boolean` | `false` | Enable non-blocking output (Prod mode only) |
 
 ## License
 
