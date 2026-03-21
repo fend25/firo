@@ -16,7 +16,7 @@ Beautiful colors in dev mode:
 
 Structured NDJSON in production mode:
 
-![firo prod output](https://github.com/fend25/firo/blob/main/img/prod_mode.png)
+![firo prod output](https://github.com/fend25/firo/blob/main/img/prod_mode.png?raw=true)
 
 ## Features
 
@@ -286,7 +286,7 @@ const log = createLogger({
 
 Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
 
-![firo color palette](https://github.com/fend25/firo/blob/main/img/color_madness.png)
+![firo color palette](https://github.com/fend25/firo/blob/main/img/color_madness.png?raw=true)
 
 ### How it works
 

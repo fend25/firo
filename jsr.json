@@ -1,6 +1,6 @@
 {
   "name": "@fend/firo",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
   "license": "MIT",
   "compatibleRuntimes": ["node", "bun", "deno"],
