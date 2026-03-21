@@ -65,22 +65,21 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 
     // 3. Assemble the output line
     const parts = [
-      dim(`[${timestamp}]`),
+      `[${timestamp}]`, // Normal (not dimmed)
       contextStr,
       level === 'error'
         ? colorizeLevel('error', `[ERROR] ${msg}`)
         : level === 'warn'
           ? colorizeLevel('warn', `[WARN] ${msg}`)
-          : `${msg}`,
-      dataStr
+          : level === 'debug'
+            ? colorizeLevel('debug', msg as string)
+            : `${msg}`,
+      level === 'debug' && dataStr 
+        ? `\x1b[2m${dataStr.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
+        : dataStr
     ]
 
     let finalLine = parts.filter(Boolean).join(' ') + '\n'
-    if (level === 'debug') {
-      // Re-enable dim after every \x1b[0m reset inside the line,
-      // otherwise inner resets (from colorize, dim timestamp) kill the outer dim
-      finalLine = `\x1b[2m${finalLine.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
-    }
 
     if (level === 'error') process.stderr.write(finalLine)
     else process.stdout.write(finalLine)

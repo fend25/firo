@@ -32,8 +32,12 @@ export type LoggerConfig = {
 
 /**
  * The logger instance returned by `createLogger`.
+ * It is a callable object: calling `log(msg)` is shorthand for `log.info(msg)`.
  */
 export interface ILogger {
+  /** Shorthand for log.info() */
+  (msg: string, data?: unknown, opts?: LogOptions): void
+
   /** Log a debug message (dimmed in dev mode). */
   debug: (msg: string, data?: unknown, opts?: LogOptions) => void
   /** Log an informational message. */
@@ -154,7 +158,11 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
     transport('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)
   }
 
-  return {
+  const logInstance = ((msg: string, data?: unknown, opts?: LogOptions) => {
+    info(msg, data, opts)
+  }) as ILogger
+
+  return Object.assign(logInstance, {
     debug,
     info,
     warn,
@@ -163,5 +171,5 @@ export const createLogger = (config: LoggerConfig = {}, parentContext: ContextIt
     addContext,
     getContext,
     removeFromContext: removeKeyFromContext,
-  } satisfies ILogger
+  })
 }

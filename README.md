@@ -38,7 +38,9 @@ import { createLogger } from 'firo'
 
 const log = createLogger()
 
-log.info('Server started')
+// log() is shorthand for log.info()
+log('Server started')
+
 log.warn('Disk usage high', { used: '92%' })
 log.error('Connection lost', new Error('ECONNREFUSED'))
 ```

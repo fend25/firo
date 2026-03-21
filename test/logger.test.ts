@@ -348,8 +348,8 @@ test('dev transport — debug lines are dimmed', () => {
   const log = createLogger({ mode: 'dev' })
   const { stdout } = captureOutput(() => log.debug('dim me'))
 
-  assert.ok(stdout.startsWith('\x1b[2m'), 'debug line should start with dim')
-  assert.ok(stdout.includes('dim me'))
+  // Message should be dimmed (\x1b[2m)
+  assert.ok(stdout.includes('\x1b[2mdim me\x1b[0m'), 'debug message should be dimmed')
 })
 
 test('dev transport — data is serialized', () => {
@@ -501,9 +501,10 @@ test('json transport — error preserves data object', () => {
 
 test('default mode uses dev transport (ANSI in output)', () => {
   const log = createLogger()
+  log.addContext('svc', 'api')
   const { stdout } = captureOutput(() => log.info('test'))
 
-  assert.ok(stdout.includes('\x1b['), 'default mode should produce ANSI codes')
+  assert.ok(stdout.includes('\x1b['), 'dev mode should produce ANSI codes (e.g. for context badges)')
 })
 
 test('mode: prod uses JSON transport', () => {
@@ -521,4 +522,38 @@ test('explicit transport overrides mode', () => {
   log.info('test')
 
   assert.strictEqual(calls.length, 1)
+})
+
+test('ILogger is callable (shorthand for info)', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn })
+
+  log('shorthand')
+
+  assert.strictEqual(calls.length, 1)
+  assert.strictEqual(calls[0].level, 'info')
+  assert.strictEqual(calls[0].msg, 'shorthand')
+})
+
+test('ILogger callable shorthand accepts data and opts', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn })
+
+  log('with data', { foo: 'bar' }, { pretty: true })
+
+  assert.strictEqual(calls[0].msg, 'with data')
+  assert.deepStrictEqual(calls[0].data, { foo: 'bar' })
+  assert.strictEqual(calls[0].opts?.pretty, true)
+})
+
+test('child loggers are also callable', () => {
+  const { fn, calls } = createSpyTransport()
+  const log = createLogger({ transport: fn })
+  const child = log.child({ reqId: 'abc' })
+
+  child('child log')
+
+  assert.strictEqual(calls[0].level, 'info')
+  assert.strictEqual(calls[0].msg, 'child log')
+  assert.strictEqual(calls[0].context[0].key, 'reqId')
 })

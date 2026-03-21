@@ -33,6 +33,12 @@ userLog.info('Request details', complexObj, {
 // 6. Log with data (pretty-printed)
 userLog.info('Full dump for debug', complexObj, { pretty: true })
 
+// 6.1. Warnings (Yellow!)
+console.log()
+log.warn('High disk usage detected', { used: '85%', partition: '/var/log' })
+userLog.warn('Rate limit approaching', { remaining: 5, reset: '30s' })
+console.log()
+
 // 7. Error logging
 try {
   throw new Error('Database went away')
