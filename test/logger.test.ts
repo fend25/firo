@@ -541,6 +541,40 @@ test('json transport — error preserves data object', () => {
   assert.strictEqual(parsed.data.reason, 'timeout')
 })
 
+// --- JSON transport timestamp config ---
+
+test('json transport — ISO timestamp by default', () => {
+  const log = createLogger({mode: 'prod'})
+  const {stdout} = captureOutput(() => log.info('test'))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(typeof parsed.timestamp, 'string')
+  assert.ok(!isNaN(Date.parse(parsed.timestamp)))
+  assert.ok(parsed.timestamp.endsWith('Z'))
+})
+
+test('json transport — epoch timestamp', () => {
+  const before = Date.now()
+  const log = createLogger({mode: 'prod', jsonTransportConfig: {timestamp: 'epoch'}})
+  const {stdout} = captureOutput(() => log.info('test'))
+  const after = Date.now()
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(typeof parsed.timestamp, 'number')
+  assert.ok(parsed.timestamp >= before && parsed.timestamp <= after)
+})
+
+test('json transport — epoch timestamp with context and data', () => {
+  const log = createLogger({mode: 'prod', jsonTransportConfig: {timestamp: 'epoch'}})
+  log.addContext('service', 'api')
+  const {stdout} = captureOutput(() => log.info('req', {status: 200}))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(typeof parsed.timestamp, 'number')
+  assert.strictEqual(parsed.service, 'api')
+  assert.strictEqual(parsed.data.status, 200)
+})
+
 // --- Mode-based transport selection ---
 
 test('default mode uses dev transport (ANSI in output)', () => {

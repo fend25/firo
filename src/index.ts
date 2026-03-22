@@ -9,7 +9,7 @@ import {
   LogOptions,
   TransportFn
 } from './utils.ts'
-import {createDevTransport, createJsonTransport, DevTransportConfig} from './transports.ts'
+import {createDevTransport, createJsonTransport, DevTransportConfig, JsonTransportConfig} from './transports.ts'
 
 /**
  * Configuration options for creating a logger instance.
@@ -26,7 +26,9 @@ export type LoggerConfig = {
   /** Provide a custom transport function to override the built-in behaviors. */
   transport?: TransportFn // Custom transport override
   /** Options for fine-tuning the built-in development transport (e.g. timestamp format). */
-  devTransportConfig?: DevTransportConfig // Options for the dev transport
+  devTransportConfig?: DevTransportConfig
+  /** Options for the built-in JSON production transport (e.g. timestamp format). */
+  jsonTransportConfig?: JsonTransportConfig
   /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to false (safe 10-color palette). */
   useAllColors?: boolean
 }
@@ -86,7 +88,7 @@ const fillContextItem = (item: ContextItem, useAllColors = false): ContextItemWi
   }
 }
 
-export type { DevTransportConfig } from './transports.ts'
+export type { DevTransportConfig, JsonTransportConfig, TimestampFormat } from './transports.ts'
 export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
 export { FIRO_COLORS } from './utils.ts'
 export {createDevTransport, createJsonTransport} from './transports.ts'
@@ -109,7 +111,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport() : createDevTransport(config.devTransportConfig))
+    ?? (config.mode === 'prod' ? createJsonTransport(config.jsonTransportConfig) : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel

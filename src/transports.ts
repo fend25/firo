@@ -119,6 +119,13 @@ const serializeError = (_err: unknown) => {
   }
 }
 
+export type TimestampFormat = 'iso' | 'epoch'
+
+export type JsonTransportConfig = {
+  /** Timestamp format: 'iso' (default) for ISO 8601 string, 'epoch' for ms since Unix epoch. */
+  timestamp?: TimestampFormat
+}
+
 /**
  * Builds a structured log record object from log call arguments.
  */
@@ -126,7 +133,8 @@ const buildRecord = (
   level: LogLevel,
   context: ContextItemWithOptions[],
   msg: string | Error | unknown,
-  data?: Error | unknown
+  getTimestamp: () => string | number,
+  data?: Error | unknown,
 ): Record<string, unknown> => {
   const contextObj = context.reduce((acc, item) => {
     acc[item.key] = item.value
@@ -134,7 +142,7 @@ const buildRecord = (
   }, {} as Record<string, unknown>)
 
   const logRecord: Record<string, unknown> = {
-    timestamp: new Date().toISOString(),
+    timestamp: getTimestamp(),
     level,
     ...contextObj,
   }
@@ -177,9 +185,13 @@ const buildRecord = (
  *
  * @returns A `TransportFn` that writes JSON to standard output.
  */
-export const createJsonTransport = (): TransportFn => {
+export const createJsonTransport = (config: JsonTransportConfig = {}): TransportFn => {
+  const getTimestamp = config.timestamp === 'epoch'
+    ? () => Date.now()
+    : () => new Date().toISOString()
+
   return (level, context, msg, data) => {
-    const record = buildRecord(level, context, msg, data)
+    const record = buildRecord(level, context, msg, getTimestamp, data)
     let line: string
 
     try {

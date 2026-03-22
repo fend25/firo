@@ -17,7 +17,7 @@ build/
 !.env.example
 
 # Scripts
-*.sh
+./*.sh
 
 # Editor
 .vscode/

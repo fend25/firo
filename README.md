@@ -289,6 +289,23 @@ const log = createLogger({
 })
 ```
 
+## JSON transport options
+
+Configure the prod (JSON) transport's timestamp format:
+
+```ts
+// Epoch ms (faster, same as pino)
+const log = createLogger({
+  mode: 'prod',
+  jsonTransportConfig: { timestamp: 'epoch' }
+})
+// {"timestamp":1711100000000,"level":"info","message":"hello"}
+
+// ISO 8601 (default, human-readable)
+const log = createLogger({ mode: 'prod' })
+// {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"hello"}
+```
+
 ## Color palette
 
 Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
@@ -354,6 +371,35 @@ The problem with pino is development. Its default output is raw JSON — one gia
 
 In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the difference.
 
+## Performance
+
+Prod mode (NDJSON) with `timestamp: 'epoch'`, Apple M1, Node.js 25. Average time per 100K log lines (lower is better):
+
+| Scenario               | ops/sec | ms     |
+| ---------------------- | ------- | ------ |
+| simple string          | 782,488 | 127.8  |
+| string + small obj     | 656,512 | 152.3  |
+| string + bigger obj    | 513,087 | 194.9  |
+| with 3 context items   | 570,441 | 175.3  |
+| child logger (2 ctx)   | 568,977 | 175.8  |
+| error with Error obj   | 470,758 | 212.4  |
+
+For comparison, here's [pino's own benchmark](https://github.com/pinojs/pino/blob/main/docs/benchmarks.md) (100K `"hello world"` logs):
+
+| Logger           | ms     |
+| ---------------- | ------ |
+| pino             | 114.8  |
+| **firo**         | **127.8** |
+| bole             | 172.7  |
+| pino (NodeStream)| 159.2  |
+| debug            | 220.5  |
+| winston          | 270.2  |
+| bunyan           | 377.4  |
+
+Pino is faster thanks to [SonicBoom](https://github.com/pinojs/sonic-boom) — an optimized async writer with buffering and [fast-json-stringify](https://github.com/fastify/fast-json-stringify) for schema-compiled serialization. firo uses plain `JSON.stringify` + `process.stdout.write` and lands within 8% of pino — a difference of ~130 nanoseconds per log line.
+
+Run it yourself: `pnpm bench`
+
 ## API reference
 
 ### Logger methods
@@ -380,6 +426,7 @@ In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the 
 | `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
 | `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
+| `jsonTransportConfig` | `JsonTransportConfig` | — | Options for the built-in JSON prod transport |
 | `useAllColors` | `boolean` | `false` | Use all 30 palette colors for auto-hash (instead of 10 safe) |
 
 ## License
