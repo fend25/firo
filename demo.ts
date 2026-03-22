@@ -1,4 +1,4 @@
-import {createLogger, type Firo, FIRO_COLORS} from './src'
+import {createFiro, type Firo, FIRO_COLORS} from './src'
 
 
 const mainWithColors = (log: Firo) => {
@@ -64,7 +64,7 @@ const main = (log: Firo) => {
 }
 
 console.log('Beautiful colors in dev mode:\n')
-main(createLogger())
+main(createFiro())
 console.log('\nAnd robust and boring NDJSON in production mode:\n')
-main(createLogger({mode: 'prod'}))
+main(createFiro({mode: 'prod'}))
 console.log('\n')

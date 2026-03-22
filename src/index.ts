@@ -1,7 +1,6 @@
 import {
   ContextExtension,
   ContextItem, ContextItemWithOptions,
-  ContextOptions,
   ContextValue,
   getColorIndex,
   LOG_LEVELS,
@@ -9,7 +8,8 @@ import {
   LogOptions,
   TransportFn
 } from './utils.ts'
-import {createDevTransport, createJsonTransport, DevTransportConfig, JsonTransportConfig} from './transports.ts'
+import {createDevTransport, DevTransportConfig} from './transport_dev.ts'
+import {createProdTransport, ProdTransportConfig} from './transport_prod.ts'
 
 /**
  * Configuration options for creating a logger instance.
@@ -27,14 +27,14 @@ export type LoggerConfig = {
   transport?: TransportFn // Custom transport override
   /** Options for fine-tuning the built-in development transport (e.g. timestamp format). */
   devTransportConfig?: DevTransportConfig
-  /** Options for the built-in JSON production transport (e.g. timestamp format). */
-  jsonTransportConfig?: JsonTransportConfig
-  /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to false (safe 10-color palette). */
+  /** Options for the built-in prod transport (e.g. timestamp format). */
+  prodTransportConfig?: ProdTransportConfig
+  /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to true. Set to false to restrict to 10 terminal-safe colors. */
   useAllColors?: boolean
 }
 
 /**
- * The logger instance returned by `createLogger`.
+ * The logger instance returned by `createFiro`.
  * It is a callable object: calling `log(msg)` is shorthand for `log.info(msg)`.
  */
 export interface Firo {
@@ -77,25 +77,31 @@ export interface Firo {
   hasInContext(key: string): boolean
 }
 
-const fillContextItem = (item: ContextItem, useAllColors = false): ContextItemWithOptions => {
-  return {
+export type { DevTransportConfig } from './transport_dev.ts'
+export type { ProdTransportConfig, TimestampFormat } from './transport_prod.ts'
+export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
+export { FIRO_COLORS } from './utils.ts'
+export {createDevTransport} from './transport_dev.ts'
+export {createProdTransport} from './transport_prod.ts'
+
+export * as FiroUtils from './utils.ts'
+
+/**
+ * Creates a new logger instance with the specified configuration.
+ *
+ * @param config Optional configuration for log levels, mode, and transports.
+ * @returns A fully configured `Firo` instance.
+ */
+export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): Firo => {
+  const useAllColors = config.useAllColors ?? true
+  const fill = (item: ContextItem): ContextItemWithOptions => ({
     ...item,
     colorIndex: (typeof item.colorIndex === 'number')
       ? item.colorIndex
       : getColorIndex(item.key, useAllColors),
     color: item.color,
     omitKey: item.omitKey ?? false,
-  }
-}
-
-export type { DevTransportConfig, JsonTransportConfig, TimestampFormat } from './transports.ts'
-export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
-export { FIRO_COLORS } from './utils.ts'
-export {createDevTransport, createJsonTransport} from './transports.ts'
-
-const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]): Firo => {
-  const useAllColors = config.useAllColors ?? false
-  const fill = (item: ContextItem) => fillContextItem(item, useAllColors)
+  })
 
   const appendContextWithInvokeContext = (
     context: ContextItemWithOptions[],
@@ -111,7 +117,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
   // Resolve transport once at creation time
   const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createJsonTransport(config.jsonTransportConfig) : createDevTransport(config.devTransportConfig))
+    ?? (config.mode === 'prod' ? createProdTransport(config.prodTransportConfig) : createDevTransport(config.devTransportConfig))
 
   const minLevelName: LogLevel | undefined = config.mode === 'prod'
     ? config.minLevelInProd ?? config.minLevel
@@ -151,7 +157,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
 
     // Pass current context snapshot + new items.
     // Reuse the same transport instance to avoid recreating it.
-    return createLoggerInternal({transport, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
+    return createFiro({transport, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {
@@ -188,14 +194,4 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
     hasInContext,
     removeFromContext: removeKeyFromContext,
   })
-}
-
-/**
- * Creates a new logger instance with the specified configuration.
- *
- * @param config Optional configuration for log levels, mode, and transports.
- * @returns A fully configured `Firo` instance.
- */
-export const createLogger = (config: LoggerConfig = {}): Firo => {
-  return createLoggerInternal(config, [])
 }

@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {createLogger} from '../src/index.ts'
+import {createFiro} from '../src/index.ts'
 import type {TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from '../src/utils.ts'
 
 // --- Helpers ---
@@ -35,7 +35,7 @@ function captureOutput(fn: () => void): {stdout: string; stderr: string} {
 
 test('default minLevel is debug — all levels pass through', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.debug('d')
   log.info('i')
@@ -47,7 +47,7 @@ test('default minLevel is debug — all levels pass through', () => {
 
 test('minLevel: info — suppresses debug', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, minLevel: 'info'})
+  const log = createFiro({transport: fn, minLevel: 'info'})
 
   log.debug('d')
   log.info('i')
@@ -59,7 +59,7 @@ test('minLevel: info — suppresses debug', () => {
 
 test('minLevel: error — only error passes', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, minLevel: 'error'})
+  const log = createFiro({transport: fn, minLevel: 'error'})
 
   log.debug('d')
   log.info('i')
@@ -71,7 +71,7 @@ test('minLevel: error — only error passes', () => {
 
 test('minLevelInDev overrides minLevel in dev mode', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, mode: 'dev', minLevel: 'debug', minLevelInDev: 'warn'})
+  const log = createFiro({transport: fn, mode: 'dev', minLevel: 'debug', minLevelInDev: 'warn'})
 
   log.debug('d')
   log.info('i')
@@ -83,7 +83,7 @@ test('minLevelInDev overrides minLevel in dev mode', () => {
 
 test('minLevelInProd overrides minLevel in prod mode', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, mode: 'prod', minLevel: 'debug', minLevelInProd: 'error'})
+  const log = createFiro({transport: fn, mode: 'prod', minLevel: 'debug', minLevelInProd: 'error'})
 
   log.debug('d')
   log.info('i')
@@ -97,7 +97,7 @@ test('minLevelInProd overrides minLevel in prod mode', () => {
 
 test('addContext — appears in transport calls', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext('service', 'auth')
   log.info('test')
@@ -109,7 +109,7 @@ test('addContext — appears in transport calls', () => {
 
 test('addContext — object form', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext({key: 'env', value: 'prod', omitKey: true})
   log.info('test')
@@ -120,7 +120,7 @@ test('addContext — object form', () => {
 
 test('addContext — explicit colorIndex is preserved', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext({key: 'x', value: 'y', colorIndex: 7})
   log.info('test')
@@ -130,7 +130,7 @@ test('addContext — explicit colorIndex is preserved', () => {
 
 test('addContext — custom color is preserved and used in output', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext({key: 'trace', value: 'abc', color: '38;5;214'})
   log.info('test')
@@ -138,7 +138,7 @@ test('addContext — custom color is preserved and used in output', () => {
   assert.strictEqual(calls[0].context[0].color, '38;5;214')
 
   // Verify it renders with the custom color in dev transport
-  const devLog = createLogger({mode: 'dev'})
+  const devLog = createFiro({mode: 'dev'})
   devLog.addContext({key: 'trace', value: 'abc', color: '38;5;214'})
   let stdout = ''
   const origWrite = process.stdout.write
@@ -153,7 +153,7 @@ test('addContext — custom color is preserved and used in output', () => {
 
 test('hasInContext — returns true for existing key', () => {
   const {fn} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext('service', 'auth')
 
@@ -163,7 +163,7 @@ test('hasInContext — returns true for existing key', () => {
 
 test('removeFromContext — removes by key', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext('a', '1')
   log.addContext('b', '2')
@@ -176,7 +176,7 @@ test('removeFromContext — removes by key', () => {
 
 test('removeFromContext — non-existent key does not throw', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   log.removeFromContext('nope')
   log.info('test')
   assert.strictEqual(calls[0].context.length, 0)
@@ -184,7 +184,7 @@ test('removeFromContext — non-existent key does not throw', () => {
 
 test('getContext returns current context', () => {
   const {fn} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext('a', '1')
   log.addContext('b', '2')
@@ -199,7 +199,7 @@ test('getContext returns current context', () => {
 
 test('opts.ctx adds inline context for single call', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   log.addContext('service', 'auth')
 
   log.info('with ctx', undefined, {ctx: [{key: 'reqId', value: '42'}]})
@@ -212,7 +212,7 @@ test('opts.ctx adds inline context for single call', () => {
 
 test('opts.ctx works on error', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.error('boom', new Error('fail'), {ctx: [{key: 'op', value: 'delete'}]})
 
@@ -224,7 +224,7 @@ test('opts.ctx works on error', () => {
 
 test('child inherits parent context', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   log.addContext('service', 'auth')
 
   const child = log.child({requestId: 123})
@@ -238,7 +238,7 @@ test('child inherits parent context', () => {
 
 test('child context does not mutate parent', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   log.addContext('service', 'auth')
 
   const child = log.child({requestId: 123})
@@ -253,7 +253,7 @@ test('child context does not mutate parent', () => {
 
 test('parent mutation after child does not affect child', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   log.addContext('a', '1')
 
   const child = log.child({b: '2'})
@@ -266,7 +266,7 @@ test('parent mutation after child does not affect child', () => {
 
 test('deeply nested children accumulate context', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   const deep = log.child({a: 1}).child({b: 2}).child({c: 3})
   deep.info('test')
@@ -276,7 +276,7 @@ test('deeply nested children accumulate context', () => {
 
 test('child inherits minLevel', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, minLevel: 'warn'})
+  const log = createFiro({transport: fn, minLevel: 'warn'})
 
   const child = log.child({x: 1})
   child.debug('d')
@@ -291,7 +291,7 @@ test('child inherits minLevel', () => {
 
 test('error(msg) — string only', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.error('something broke')
 
@@ -302,7 +302,7 @@ test('error(msg) — string only', () => {
 
 test('error(msg, err) — string + Error', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   const err = new Error('db failed')
 
   log.error('query failed', err)
@@ -313,7 +313,7 @@ test('error(msg, err) — string + Error', () => {
 
 test('error(err) — Error only', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   const err = new Error('boom')
 
   log.error(err)
@@ -325,7 +325,7 @@ test('error(err) — Error only', () => {
 // --- Dev transport ---
 
 test('dev transport — writes to stdout for info', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout, stderr} = captureOutput(() => log.info('hello'))
 
   assert.ok(stdout.includes('hello'))
@@ -333,21 +333,21 @@ test('dev transport — writes to stdout for info', () => {
 })
 
 test('dev transport — writes to stderr for error', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stderr} = captureOutput(() => log.error('bad'))
 
   assert.ok(stderr.includes('bad'))
 })
 
 test('dev transport — timestamp format HH:MM:SS.mmm', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(/\d{2}:\d{2}:\d{2}[.,]\d{3}/.test(stdout), `No timestamp in: ${stdout}`)
 })
 
 test('dev transport — context rendered as [key:value]', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   log.addContext('svc', 'api')
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -355,7 +355,7 @@ test('dev transport — context rendered as [key:value]', () => {
 })
 
 test('dev transport — omitKey renders [value] only', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   log.addContext({key: 'userId', value: 'bob', omitKey: true})
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -364,21 +364,21 @@ test('dev transport — omitKey renders [value] only', () => {
 })
 
 test('dev transport — error has [ERROR] prefix', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stderr} = captureOutput(() => log.error('oops'))
 
   assert.ok(stderr.includes('[ERROR]'))
 })
 
 test('dev transport — warn has [WARN] prefix', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.warn('careful'))
 
   assert.ok(stdout.includes('[WARN]'))
 })
 
 test('dev transport — debug lines are dimmed', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.debug('dim me'))
 
   // Message should be dimmed (\x1b[2m)
@@ -386,7 +386,7 @@ test('dev transport — debug lines are dimmed', () => {
 })
 
 test('dev transport — data is serialized', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
   assert.ok(stdout.includes('status'))
@@ -394,14 +394,14 @@ test('dev transport — data is serialized', () => {
 })
 
 test('dev transport — ends with newline', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
 })
 
 test('dev transport — handles circular structures without crashing', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   const obj: any = {a: 1}
   obj.self = obj // circular reference
 
@@ -414,7 +414,7 @@ test('dev transport — handles circular structures without crashing', () => {
 })
 
 test('dev transport — applies devTransportConfig time options', () => {
-  const log = createLogger({
+  const log = createFiro({
     mode: 'dev',
     devTransportConfig: {
       timeOptions: {hour: 'numeric', minute: undefined, second: undefined, fractionalSecondDigits: undefined}
@@ -428,7 +428,7 @@ test('dev transport — applies devTransportConfig time options', () => {
 })
 
 test('dev transport — stringifies object message instead of [object Object]', () => {
-  const log = createLogger({mode: 'dev'})
+  const log = createFiro({mode: 'dev'})
   //@ts-expect-error
   const {stdout} = captureOutput(() => log.info({status: 'ok', count: 42}))
 
@@ -441,7 +441,7 @@ test('dev transport — stringifies object message instead of [object Object]', 
 // --- JSON transport ---
 
 test('json transport — valid NDJSON', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('hello'))
 
   const parsed = JSON.parse(stdout.trim())
@@ -451,7 +451,7 @@ test('json transport — valid NDJSON', () => {
 })
 
 test('json transport — ISO timestamp', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   const parsed = JSON.parse(stdout.trim())
@@ -459,7 +459,7 @@ test('json transport — ISO timestamp', () => {
 })
 
 test('json transport — context flattened into record', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   log.addContext('service', 'api')
   log.addContext('env', 'prod')
   const {stdout} = captureOutput(() => log.info('test'))
@@ -470,7 +470,7 @@ test('json transport — context flattened into record', () => {
 })
 
 test('json transport — data field for non-error', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
   const parsed = JSON.parse(stdout.trim())
@@ -478,7 +478,7 @@ test('json transport — data field for non-error', () => {
 })
 
 test('json transport — error with msg + Error', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const err = new Error('db down')
   const {stdout} = captureOutput(() => log.error('query failed', err))
 
@@ -490,7 +490,7 @@ test('json transport — error with msg + Error', () => {
 })
 
 test('json transport — error writes to stdout (not stderr)', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout, stderr} = captureOutput(() => log.error('bad'))
 
   assert.ok(stdout.length > 0)
@@ -498,14 +498,14 @@ test('json transport — error writes to stdout (not stderr)', () => {
 })
 
 test('json transport — ends with newline', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
 })
 
 test('json transport — handles circular structures without crashing', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const obj: any = {a: 1}
   obj.self = obj
 
@@ -528,7 +528,7 @@ test('json transport — handles circular structures without crashing', () => {
 })
 
 test('json transport — error preserves data object', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
 
   const {stdout} = captureOutput(() => {
     log.error('Payment failed', {userId: 123, reason: 'timeout'})
@@ -544,7 +544,7 @@ test('json transport — error preserves data object', () => {
 // --- JSON transport timestamp config ---
 
 test('json transport — ISO timestamp by default', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   const parsed = JSON.parse(stdout.trim())
@@ -555,7 +555,7 @@ test('json transport — ISO timestamp by default', () => {
 
 test('json transport — epoch timestamp', () => {
   const before = Date.now()
-  const log = createLogger({mode: 'prod', jsonTransportConfig: {timestamp: 'epoch'}})
+  const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
   const {stdout} = captureOutput(() => log.info('test'))
   const after = Date.now()
 
@@ -565,7 +565,7 @@ test('json transport — epoch timestamp', () => {
 })
 
 test('json transport — epoch timestamp with context and data', () => {
-  const log = createLogger({mode: 'prod', jsonTransportConfig: {timestamp: 'epoch'}})
+  const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
   log.addContext('service', 'api')
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
@@ -578,7 +578,7 @@ test('json transport — epoch timestamp with context and data', () => {
 // --- Mode-based transport selection ---
 
 test('default mode uses dev transport (ANSI in output)', () => {
-  const log = createLogger()
+  const log = createFiro()
   log.addContext('svc', 'api')
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -586,7 +586,7 @@ test('default mode uses dev transport (ANSI in output)', () => {
 })
 
 test('mode: prod uses JSON transport', () => {
-  const log = createLogger({mode: 'prod'})
+  const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   const parsed = JSON.parse(stdout.trim())
@@ -595,7 +595,7 @@ test('mode: prod uses JSON transport', () => {
 
 test('explicit transport overrides mode', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({mode: 'prod', transport: fn})
+  const log = createFiro({mode: 'prod', transport: fn})
 
   log.info('test')
 
@@ -604,7 +604,7 @@ test('explicit transport overrides mode', () => {
 
 test('`log` is callable (shorthand for info)', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log('shorthand')
 
@@ -615,7 +615,7 @@ test('`log` is callable (shorthand for info)', () => {
 
 test('`log` callable shorthand accepts data and opts', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log('with data', {foo: 'bar'}, {pretty: true})
 
@@ -626,7 +626,7 @@ test('`log` callable shorthand accepts data and opts', () => {
 
 test('child loggers are also callable', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
   const child = log.child({reqId: 'abc'})
 
   child('child log')
@@ -638,7 +638,7 @@ test('child loggers are also callable', () => {
 
 test('falsy context values (0, false, null) are preserved', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn})
 
   log.addContext('count', 0)
   log.addContext('active', false)
@@ -652,7 +652,7 @@ test('falsy context values (0, false, null) are preserved', () => {
 
 test('useAllColors — auto-hash can assign extended palette indices (10+)', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn, useAllColors: true})
+  const log = createFiro({transport: fn, useAllColors: true})
 
   // Add enough keys to statistically hit extended indices
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
@@ -665,7 +665,7 @@ test('useAllColors — auto-hash can assign extended palette indices (10+)', () 
 
 test('useAllColors: false — auto-hash stays in safe zone 0-9', () => {
   const {fn, calls} = createSpyTransport()
-  const log = createLogger({transport: fn})
+  const log = createFiro({transport: fn, useAllColors: false})
 
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
   for (const key of keys) log.addContext(key, key)

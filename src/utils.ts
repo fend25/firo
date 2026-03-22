@@ -1,3 +1,5 @@
+import {inspect} from 'node:util'
+
 // --- Types ---
 
 /** Available log severity levels. */
@@ -117,6 +119,37 @@ export const getColorIndex = (str: string, useAllColors = false): number => {
 export const colorize = (text: string, colorIndex: number, color?: string): string => {
   const code = color ?? (COLORS_LIST[colorIndex] || COLORS_LIST[colorIndex % SAFE_COLORS_COUNT])
   return `\x1b[${code}m${text}\x1b[0m`
+}
+
+// --- Shared serialization utils ---
+
+export const jsonReplacer = (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value
+
+export const safeStringify = (obj: unknown): string => {
+  try {
+    return JSON.stringify(obj, jsonReplacer)
+  } catch {
+    return inspect(obj)
+  }
+}
+
+export const wrapToError = (obj: unknown): Error => {
+  if (obj instanceof Error) return obj
+  return new Error(
+    (typeof obj === 'object' && obj !== null) ? safeStringify(obj) : String(obj)
+  )
+}
+
+// Serialize an error-like value to a plain object
+export const serializeError = (_err: unknown) => {
+  const err = wrapToError(_err)
+  return {
+    message: err.message,
+    stack: err.stack,
+    name: err.name,
+    ...(err as any)
+  }
 }
 
 // Maps log level to ANSI color: error=red, warn=yellow, info=plain

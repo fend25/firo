@@ -54,9 +54,9 @@ deno add jsr:@fend/firo
 ## Quick start
 
 ```ts
-import { createLogger } from '@fend/firo'
+import { createFiro } from '@fend/firo'
 
-const log = createLogger()
+const log = createFiro()
 
 // log() is shorthand for log.info()
 log('Server started')
@@ -79,7 +79,7 @@ Dev output:
 Colored, human-readable. Errors go to `stderr`, everything else to `stdout`.
 
 ```ts
-const log = createLogger({ mode: 'dev' })
+const log = createFiro({ mode: 'dev' })
 ```
 
 ### Prod
@@ -87,7 +87,7 @@ const log = createLogger({ mode: 'dev' })
 Structured NDJSON. Everything goes to `stdout` — let your infrastructure route it.
 
 ```ts
-const log = createLogger({ mode: 'prod' })
+const log = createFiro({ mode: 'prod' })
 
 log.info('Request handled', { status: 200 })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"Request handled","data":{"status":200}}
@@ -101,9 +101,9 @@ The best way to use **firo** in web frameworks is to store a child logger in `As
 
 ```ts
 import { AsyncLocalStorage } from 'node:util'
-import { createLogger } from '@fend/firo'
+import { createFiro } from '@fend/firo'
 
-const logger = createLogger()
+const logger = createFiro()
 const storage = new AsyncLocalStorage()
 
 // Middleware example
@@ -140,13 +140,13 @@ Debug lines are dimmed in dev mode to reduce visual noise.
 
 ```ts
 // Suppress debug in dev, keep everything in prod
-const log = createLogger({
+const log = createFiro({
   minLevelInDev: 'info',
   minLevelInProd: 'warn',
 })
 
 // Or a single threshold for both modes
-const log = createLogger({ minLevel: 'warn' })
+const log = createFiro({ minLevel: 'warn' })
 ```
 
 ## Context
@@ -154,7 +154,7 @@ const log = createLogger({ minLevel: 'warn' })
 Attach persistent key/value pairs to a logger instance. They appear in every log line.
 
 ```ts
-const log = createLogger()
+const log = createFiro()
 
 log.addContext('service', 'auth')
 log.addContext('env', 'production')
@@ -171,7 +171,7 @@ log.info('Started')
 log.addContext({ key: 'userId', value: 'u-789', omitKey: true })
 // renders as [u-789] instead of [userId:u-789]
 
-// Pin a specific color (0–9)
+// Pin a specific color by palette index (0–29)
 log.addContext({ key: 'region', value: 'west', colorIndex: 3 })
 
 // Use any ANSI color — 256-color, truecolor, anything
@@ -196,7 +196,7 @@ const ctx = log.getContext() // ContextItem[]
 Create a scoped logger that inherits the parent's context at the moment of creation. Parent and child are fully isolated — mutations on one do not affect the other.
 
 ```ts
-const log = createLogger()
+const log = createFiro()
 log.addContext('service', 'api')
 
 const reqLog = log.child({ requestId: 'req-123', method: 'POST' })
@@ -267,7 +267,22 @@ const myTransport: TransportFn = (level, context, msg, data, opts) => {
   // opts:    LogOptions | undefined
 }
 
-const log = createLogger({ transport: myTransport })
+const log = createFiro({ transport: myTransport })
+```
+
+### FiroUtils
+
+`FiroUtils` exposes helper functions useful for building custom transports:
+
+```ts
+import { FiroUtils } from '@fend/firo'
+
+FiroUtils.wrapToError(value)      // coerce unknown → Error
+FiroUtils.serializeError(err)     // Error → plain object { message, stack, name }
+FiroUtils.safeStringify(obj)      // JSON.stringify with bigint support + fallback
+FiroUtils.jsonReplacer            // replacer for JSON.stringify (handles bigint)
+FiroUtils.colorize(text, idx)     // wrap text in ANSI color by palette index
+FiroUtils.colorizeLevel(level, t) // wrap text in level color (red/yellow/dim)
 ```
 
 ## Dev transport options
@@ -275,9 +290,9 @@ const log = createLogger({ transport: myTransport })
 Fine-tune the dev transport's timestamp format. For example, to remove seconds and milliseconds:
 
 ```ts
-import { createLogger } from '@fend/firo'
+import { createFiro } from '@fend/firo'
 
-const log = createLogger({
+const log = createFiro({
   devTransportConfig: {
     timeOptions: {
       hour: '2-digit', 
@@ -289,20 +304,20 @@ const log = createLogger({
 })
 ```
 
-## JSON transport options
+## Prod transport options
 
 Configure the prod (JSON) transport's timestamp format:
 
 ```ts
 // Epoch ms (faster, same as pino)
-const log = createLogger({
+const log = createFiro({
   mode: 'prod',
-  jsonTransportConfig: { timestamp: 'epoch' }
+  prodTransportConfig: { timestamp: 'epoch' }
 })
 // {"timestamp":1711100000000,"level":"info","message":"hello"}
 
 // ISO 8601 (default, human-readable)
-const log = createLogger({ mode: 'prod' })
+const log = createFiro({ mode: 'prod' })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"hello"}
 ```
 
@@ -314,14 +329,14 @@ Most loggers give you monochrome walls of text. firo gives you **30 handpicked c
 
 ### How it works
 
-By default, firo auto-assigns colors from 10 terminal-safe base colors using a hash of the context key. Similar keys like `user-1` and `user-2` land on different colors automatically.
+By default, firo auto-assigns colors from all 30 palette colors using a hash of the context key. Similar keys like `user-1` and `user-2` land on different colors automatically.
 
-But the real fun starts when you reach for `FIRO_COLORS` — a named palette of 30 colors with full IDE autocomplete:
+You can also pin a specific color using `FIRO_COLORS` — a named palette with full IDE autocomplete:
 
 ```ts
-import { createLogger, FIRO_COLORS } from '@fend/firo'
+import { createFiro, FIRO_COLORS } from '@fend/firo'
 
-const log = createLogger()
+const log = createFiro()
 
 log.addContext('region', { value: 'west', color: FIRO_COLORS.coral })
 log.addContext('service', { value: 'auth', color: FIRO_COLORS.skyBlue })
@@ -339,18 +354,12 @@ log.addContext('trace', { value: 'abc', color: '38;5;214' })         // 256-colo
 log.addContext('span', { value: 'xyz', color: '38;2;255;105;180' })  // truecolor pink
 ```
 
-### Use all 30 colors for auto-hash
+### Restrict to safe colors
 
-By default, auto-hash only picks from the 10 basic terminal-safe colors. If your terminal supports 256 colors (most modern terminals do), unleash the full palette:
+If your terminal doesn't support 256 colors, you can restrict auto-hash to 10 basic terminal-safe colors:
 
 ```ts
-const log = createLogger({ useAllColors: true })
-
-// Now every context key auto-gets one of 30 distinct colors
-log.addContext('service', 'api')
-log.addContext('region', 'west')
-log.addContext('pod', 'web-3')
-// Each badge is a different, beautiful color — no configuration needed
+const log = createFiro({ useAllColors: false })
 ```
 
 ## Why not pino?
@@ -415,8 +424,9 @@ Run it yourself: `pnpm bench`
 | `addContext(item)` | Add a context entry (object form) |
 | `removeFromContext(key)` | Remove a context entry by key |
 | `getContext()` | Return the current context array |
+| `hasInContext(key)` | Check if a context key exists |
 
-### `createLogger(config?)`
+### `createFiro(config?)`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -426,8 +436,8 @@ Run it yourself: `pnpm bench`
 | `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
 | `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
-| `jsonTransportConfig` | `JsonTransportConfig` | — | Options for the built-in JSON prod transport |
-| `useAllColors` | `boolean` | `false` | Use all 30 palette colors for auto-hash (instead of 10 safe) |
+| `prodTransportConfig` | `ProdTransportConfig` | — | Options for the built-in JSON prod transport |
+| `useAllColors` | `boolean` | `true` | Use all 30 palette colors for auto-hash (set `false` for 10 safe colors) |
 
 ## License
 

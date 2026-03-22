@@ -1,4 +1,4 @@
-import { createLogger } from '../src/index.ts'
+import { createFiro } from '../src/index.ts'
 
 const RUNS = 10
 const BATCH = 100_000
@@ -27,7 +27,7 @@ w(`  This will take ~10-15 seconds. Sit back and relax.\n\n`)
 const totalStart = performance.now()
 
 const initLogger = () => {
-  return createLogger({mode: "prod", jsonTransportConfig: {timestamp: "epoch"}})
+  return createFiro({mode: "prod", prodTransportConfig: {timestamp: "epoch"}})
 }
 
 bench("simple string", () => {
