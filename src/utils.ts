@@ -5,6 +5,7 @@ import {inspect} from 'node:util'
 /** Available log severity levels. */
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
+/** Numeric severity values for each log level, used for threshold filtering. */
 export const LOG_LEVELS = {
   debug: 20,
   info: 30,
@@ -101,7 +102,7 @@ export const FIRO_COLORS = {
 const COLORS_LIST = Object.values(FIRO_COLORS)
 const SAFE_COLORS_COUNT = 10
 
-// Hash a string to a stable color index
+/** Hash a string to a stable color palette index. Similar strings land on different colors. */
 export const getColorIndex = (str: string, useAllColors = false): number => {
   let hash = 0
 
@@ -116,6 +117,7 @@ export const getColorIndex = (str: string, useAllColors = false): number => {
   return Math.abs(hash % range)
 }
 
+/** Wrap text in an ANSI color escape sequence by palette index or raw ANSI code. */
 export const colorize = (text: string, colorIndex: number, color?: string): string => {
   const code = color ?? (COLORS_LIST[colorIndex] || COLORS_LIST[colorIndex % SAFE_COLORS_COUNT])
   return `\x1b[${code}m${text}\x1b[0m`
@@ -123,9 +125,11 @@ export const colorize = (text: string, colorIndex: number, color?: string): stri
 
 // --- Shared serialization utils ---
 
+/** JSON.stringify replacer that converts BigInt values to strings. */
 export const jsonReplacer = (_key: string, value: unknown): unknown =>
   typeof value === 'bigint' ? value.toString() : value
 
+/** Safely stringify any value to JSON with BigInt support. Falls back to `util.inspect` on circular references. */
 export const safeStringify = (obj: unknown): string => {
   try {
     return JSON.stringify(obj, jsonReplacer)
@@ -134,6 +138,7 @@ export const safeStringify = (obj: unknown): string => {
   }
 }
 
+/** Coerce any value to an Error instance. If already an Error, returns as-is. */
 export const wrapToError = (obj: unknown): Error => {
   if (obj instanceof Error) return obj
   return new Error(
@@ -141,7 +146,7 @@ export const wrapToError = (obj: unknown): Error => {
   )
 }
 
-// Serialize an error-like value to a plain object
+/** Serialize an error-like value to a plain object with `message`, `stack`, `name`, and recursively serialized `cause`. */
 export const serializeError = (_err: unknown): Record<string, unknown> => {
   const err = wrapToError(_err)
   const result: Record<string, unknown> = {
@@ -156,7 +161,17 @@ export const serializeError = (_err: unknown): Record<string, unknown> => {
   return result
 }
 
-// Maps log level to ANSI color: error=red, warn=yellow, info=plain
+/** Extract a human-readable message string from any log input. Useful for building custom transports. */
+export const extractMessage = (msg: string | Error | unknown): string =>
+  typeof msg === 'string'
+    ? msg
+    : msg instanceof Error
+      ? msg.message
+      : (typeof msg === 'object' && msg !== null)
+        ? safeStringify(msg)
+        : String(msg)
+
+/** Wrap text in an ANSI color based on log level: red for error, yellow for warn, dim for debug. */
 export const colorizeLevel = (level: LogLevel, text: string): string => {
   if (level === 'info') return text
 

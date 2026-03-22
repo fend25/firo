@@ -1,6 +1,6 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {ContextItemWithOptions, LogLevel, TransportFn, jsonReplacer, safeStringify, serializeError} from './utils.ts'
+import {ContextItemWithOptions, LogLevel, TransportFn, extractMessage, jsonReplacer, serializeError} from './utils.ts'
 
 export type TimestampFormat = 'iso' | 'epoch'
 
@@ -21,30 +21,19 @@ const buildRecord = (
   getTimestamp: () => string | number,
   data?: Error | unknown,
 ): Record<string, unknown> => {
-  const contextObj = context.reduce((acc, item) => {
-    acc[item.key] = item.value
-    return acc
-  }, {} as Record<string, unknown>)
-
   const logRecord: Record<string, unknown> = {
     timestamp: getTimestamp(),
     level,
-    ...contextObj,
   }
 
+  // Flatten context directly — no intermediate object or spread
+  for (let i = 0, len = context.length; i < len; i++) {
+    logRecord[context[i].key] = context[i].value
+  }
+
+  logRecord.message = extractMessage(msg)
+
   if (level === 'error') {
-    const message = typeof msg === 'string'
-      ? msg
-      : (
-        msg instanceof Error
-          ? msg.message
-          : (typeof msg === 'object' && msg !== null)
-            ? safeStringify(msg)
-            : String(msg)
-      )
-
-    logRecord.message = message
-
     if (data instanceof Error) {
       logRecord.error = serializeError(data)
     } else if (msg instanceof Error) {
@@ -55,20 +44,9 @@ const buildRecord = (
       if (data !== undefined) logRecord.data = data
     }
   } else {
-    logRecord.message = typeof msg === 'string'
-      ? msg
-      : (
-        msg instanceof Error
-          ? msg.message
-          : (typeof msg === 'object' && msg !== null)
-            ? safeStringify(msg)
-            : String(msg)
-      )
-
     if (msg instanceof Error) {
       logRecord.error = serializeError(msg)
     }
-
     if (data !== undefined) {
       logRecord.data = data instanceof Error ? serializeError(data) : data
     }

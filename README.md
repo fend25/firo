@@ -285,6 +285,7 @@ FiroUtils.wrapToError(value)      // coerce unknown → Error
 FiroUtils.serializeError(err)     // Error → plain object { message, stack, name, cause?, ... }
 FiroUtils.safeStringify(obj)      // JSON.stringify with bigint support + fallback
 FiroUtils.jsonReplacer            // replacer for JSON.stringify (handles bigint)
+FiroUtils.extractMessage(msg)     // extract message string from string | Error | unknown
 FiroUtils.colorize(text, idx)     // wrap text in ANSI color by palette index
 FiroUtils.colorizeLevel(level, t) // wrap text in level color (red/yellow/dim)
 ```
