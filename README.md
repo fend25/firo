@@ -239,7 +239,8 @@ log.error('Payment failed', err, {
 `error()` accepts multiple call signatures:
 
 ```ts
-// Message only
+// Message only will be automatically wrapped in an Error object to intentionally capture and preserve the stack trace
+// because stack trace with a couple of extra levels of indirection is definitely better than no stack trace at all
 log.error('Something went wrong')
 
 // Message + Error object
@@ -247,6 +248,9 @@ log.error('Query failed', new Error('timeout'))
 
 // Error object only
 log.error(new Error('Unhandled'))
+
+// Error + extra data
+log.error(new Error('DB down'), { query: 'SELECT ...', reqId: 123 })
 
 // Anything — will be coerced to Error
 log.error(someUnknownThing)
@@ -278,7 +282,7 @@ const log = createFiro({ transport: myTransport })
 import { FiroUtils } from '@fend/firo'
 
 FiroUtils.wrapToError(value)      // coerce unknown → Error
-FiroUtils.serializeError(err)     // Error → plain object { message, stack, name }
+FiroUtils.serializeError(err)     // Error → plain object { message, stack, name, cause?, ... }
 FiroUtils.safeStringify(obj)      // JSON.stringify with bigint support + fallback
 FiroUtils.jsonReplacer            // replacer for JSON.stringify (handles bigint)
 FiroUtils.colorize(text, idx)     // wrap text in ANSI color by palette index

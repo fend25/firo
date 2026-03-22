@@ -52,6 +52,9 @@ export interface Firo {
   /** Log an error object directly. */
   error(err: Error | unknown): void
 
+  /** Log an error object with additional data. */
+  error(err: Error, data?: unknown, opts?: LogOptions): void
+
   /** Log a message alongside an error or custom data object. */
   error(msg: string, err?: Error | unknown, opts?: LogOptions): void
 

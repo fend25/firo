@@ -55,7 +55,20 @@ const buildRecord = (
       if (data !== undefined) logRecord.data = data
     }
   } else {
-    logRecord.message = (typeof msg === 'object' && msg !== null) ? safeStringify(msg) : String(msg)
+    logRecord.message = typeof msg === 'string'
+      ? msg
+      : (
+        msg instanceof Error
+          ? msg.message
+          : (typeof msg === 'object' && msg !== null)
+            ? safeStringify(msg)
+            : String(msg)
+      )
+
+    if (msg instanceof Error) {
+      logRecord.error = serializeError(msg)
+    }
+
     if (data !== undefined) {
       logRecord.data = data instanceof Error ? serializeError(data) : data
     }

@@ -438,9 +438,17 @@ test('dev transport — stringifies object message instead of [object Object]', 
   assert.ok(stdout.includes('42'), 'Should output numeric values')
 })
 
-// --- JSON transport ---
+test('dev transport — info with Error object', () => {
+  const log = createFiro({mode: 'dev'})
+  const {stdout} = captureOutput(() => log.info(new Error('whoops')))
 
-test('json transport — valid NDJSON', () => {
+  assert.ok(stdout.includes('Error: whoops'), 'Should output error name and message')
+  assert.ok(stdout.includes('at '), 'Should output stack trace')
+})
+
+// --- Prod transport ---
+
+test('prod transport — valid NDJSON', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('hello'))
 
@@ -450,15 +458,7 @@ test('json transport — valid NDJSON', () => {
   assert.ok(parsed.timestamp)
 })
 
-test('json transport — ISO timestamp', () => {
-  const log = createFiro({mode: 'prod'})
-  const {stdout} = captureOutput(() => log.info('test'))
-
-  const parsed = JSON.parse(stdout.trim())
-  assert.ok(!isNaN(Date.parse(parsed.timestamp)), `Invalid timestamp: ${parsed.timestamp}`)
-})
-
-test('json transport — context flattened into record', () => {
+test('prod transport — context flattened into record', () => {
   const log = createFiro({mode: 'prod'})
   log.addContext('service', 'api')
   log.addContext('env', 'prod')
@@ -469,7 +469,7 @@ test('json transport — context flattened into record', () => {
   assert.strictEqual(parsed.env, 'prod')
 })
 
-test('json transport — data field for non-error', () => {
+test('prod transport — data field for non-error', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
@@ -477,7 +477,7 @@ test('json transport — data field for non-error', () => {
   assert.strictEqual(parsed.data.status, 200)
 })
 
-test('json transport — error with msg + Error', () => {
+test('prod transport — error with msg + Error', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('db down')
   const {stdout} = captureOutput(() => log.error('query failed', err))
@@ -489,7 +489,7 @@ test('json transport — error with msg + Error', () => {
   assert.ok(parsed.error.stack)
 })
 
-test('json transport — error writes to stdout (not stderr)', () => {
+test('prod transport — error writes to stdout (not stderr)', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout, stderr} = captureOutput(() => log.error('bad'))
 
@@ -497,14 +497,14 @@ test('json transport — error writes to stdout (not stderr)', () => {
   assert.strictEqual(stderr, '')
 })
 
-test('json transport — ends with newline', () => {
+test('prod transport — ends with newline', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
 })
 
-test('json transport — handles circular structures without crashing', () => {
+test('prod transport — handles circular structures without crashing', () => {
   const log = createFiro({mode: 'prod'})
   const obj: any = {a: 1}
   obj.self = obj
@@ -527,7 +527,7 @@ test('json transport — handles circular structures without crashing', () => {
   assert.ok(typeof parsedInfo.data === 'string' && parsedInfo.data.includes('[Circular *1]'))
 })
 
-test('json transport — error preserves data object', () => {
+test('prod transport — error preserves data object', () => {
   const log = createFiro({mode: 'prod'})
 
   const {stdout} = captureOutput(() => {
@@ -541,9 +541,55 @@ test('json transport — error preserves data object', () => {
   assert.strictEqual(parsed.data.reason, 'timeout')
 })
 
-// --- JSON transport timestamp config ---
+test('prod transport — info with Error object', () => {
+  const log = createFiro({mode: 'prod'})
+  const err = new Error('fail')
+  const {stdout} = captureOutput(() => log.info(err))
 
-test('json transport — ISO timestamp by default', () => {
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.level, 'info')
+  assert.strictEqual(parsed.message, 'fail')
+  assert.strictEqual(parsed.error.message, 'fail')
+  assert.ok(parsed.error.stack)
+  assert.strictEqual(parsed.error.name, 'Error')
+})
+
+test('prod transport — error with cause chain', () => {
+  const log = createFiro({mode: 'prod'})
+  const root = new Error('connection refused')
+  const wrapped = new Error('Query failed', {cause: root})
+  const {stdout} = captureOutput(() => log.error(wrapped))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.message, 'Query failed')
+  assert.strictEqual(parsed.error.cause.message, 'connection refused')
+  assert.ok(parsed.error.cause.stack)
+})
+
+test('prod transport — error with Error + extra data', () => {
+  const log = createFiro({mode: 'prod'})
+  const err = new Error('boom')
+  const {stdout} = captureOutput(() => log.error(err, {reqId: 123}))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.message, 'boom')
+  assert.strictEqual(parsed.error.message, 'boom')
+  assert.ok(parsed.error.stack)
+  assert.strictEqual(parsed.data.reqId, 123)
+})
+
+test('prod transport — error with non-Error cause', () => {
+  const log = createFiro({mode: 'prod'})
+  const err = new Error('fail', {cause: 'some string reason'})
+  const {stdout} = captureOutput(() => log.error(err))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.error.cause, 'some string reason')
+})
+
+// --- Prod transport timestamp config ---
+
+test('prod transport — ISO timestamp by default', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -553,7 +599,7 @@ test('json transport — ISO timestamp by default', () => {
   assert.ok(parsed.timestamp.endsWith('Z'))
 })
 
-test('json transport — epoch timestamp', () => {
+test('prod transport — epoch timestamp', () => {
   const before = Date.now()
   const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -564,7 +610,7 @@ test('json transport — epoch timestamp', () => {
   assert.ok(parsed.timestamp >= before && parsed.timestamp <= after)
 })
 
-test('json transport — epoch timestamp with context and data', () => {
+test('prod transport — epoch timestamp with context and data', () => {
   const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
   log.addContext('service', 'api')
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))

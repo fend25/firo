@@ -144,12 +144,16 @@ export const wrapToError = (obj: unknown): Error => {
 // Serialize an error-like value to a plain object
 export const serializeError = (_err: unknown): Record<string, unknown> => {
   const err = wrapToError(_err)
-  return {
+  const result: Record<string, unknown> = {
     message: err.message,
     stack: err.stack,
     name: err.name,
-    ...(err as any)
+    ...(err as any),
   }
+  if (err.cause !== undefined) {
+    result.cause = err.cause instanceof Error ? serializeError(err.cause) : err.cause
+  }
+  return result
 }
 
 // Maps log level to ANSI color: error=red, warn=yellow, info=plain
