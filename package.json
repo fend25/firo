@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "demo": "tsx demo.ts"
   },
+  "packageManager": "pnpm@10.32.1",
   "engines": {
     "node": ">=16"
   },
