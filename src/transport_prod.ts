@@ -7,6 +7,8 @@ export type TimestampFormat = 'iso' | 'epoch'
 export type ProdTransportConfig = {
   /** Timestamp format: 'iso' (default) for ISO 8601 string, 'epoch' for ms since Unix epoch. */
   timestamp?: TimestampFormat
+  /** Output destination. Any object with a `.write(string)` method. Defaults to `process.stdout`. */
+  dest?: { write(s: string): unknown }
 }
 
 /**
@@ -72,6 +74,7 @@ export const createProdTransport = (config: ProdTransportConfig = {}): Transport
   const getTimestamp = config.timestamp === 'epoch'
     ? () => Date.now()
     : () => new Date().toISOString()
+  const dest = config.dest ?? process.stdout
 
   return (level, context, msg, data) => {
     const record = buildRecord(level, context, msg, getTimestamp, data)
@@ -94,6 +97,6 @@ export const createProdTransport = (config: ProdTransportConfig = {}): Transport
       }
     }
 
-    process.stdout.write(line)
+    dest.write(line)
   }
 }

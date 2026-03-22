@@ -321,6 +321,28 @@ const log = createFiro({ mode: 'prod' })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"hello"}
 ```
 
+### Custom destination
+
+By default, prod transport writes to `process.stdout`. You can redirect output to any object with a `.write(string)` method:
+
+```ts
+import { createFiro } from '@fend/firo'
+import { createWriteStream } from 'node:fs'
+
+// Write to a file
+const log = createFiro({
+  mode: 'prod',
+  prodTransportConfig: { dest: createWriteStream('/var/log/app.log') }
+})
+
+// Use SonicBoom for async buffered writes (same as pino)
+import SonicBoom from 'sonic-boom'
+const log = createFiro({
+  mode: 'prod',
+  prodTransportConfig: { dest: new SonicBoom({ fd: 1 }) }
+})
+```
+
 ## Color palette
 
 Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
