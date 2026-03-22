@@ -107,9 +107,9 @@ export const getColorIndex = (str: string, useAllColors = false): number => {
   // Uses a bit-shift to multiply by 31: (x << 5) - x === x * 31.
   // This gives good distribution for color selection so that
   // similar strings (e.g. "user-1", "user-2") land on different indices.
-  str.split('').forEach(char => {
-    hash = char.charCodeAt(0) + ((hash << 5) - hash)
-  })
+  for (let i = 0, len = str.length; i < len; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
   const range = useAllColors ? COLORS_LIST.length : SAFE_COLORS_COUNT
   return Math.abs(hash % range)
 }

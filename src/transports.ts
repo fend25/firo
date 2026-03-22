@@ -90,9 +90,12 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
 
 // --- PROD Transport (JSON) ---
 
+const jsonReplacer = (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value
+
 const safeStringify = (obj: unknown): string => {
   try {
-    return JSON.stringify(obj)
+    return JSON.stringify(obj, jsonReplacer)
   } catch {
     return inspect(obj)
   }
@@ -180,12 +183,12 @@ export const createJsonTransport = (): TransportFn => {
     let line: string
 
     try {
-      line = JSON.stringify(record) + '\n'
+      line = JSON.stringify(record, jsonReplacer) + '\n'
     } catch {
       // Fallback for circular structures
       if (record.data) record.data = inspect(record.data)
       try {
-        line = JSON.stringify(record) + '\n'
+        line = JSON.stringify(record, jsonReplacer) + '\n'
       } catch {
         line = JSON.stringify({
           timestamp: record.timestamp,
