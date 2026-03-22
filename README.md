@@ -1,5 +1,12 @@
 # firo 🌲
 
+[![npm](https://img.shields.io/npm/v/@fend/firo)](https://www.npmjs.com/package/@fend/firo)
+[![JSR](https://jsr.io/badges/@fend/firo)](https://jsr.io/@fend/firo)
+[![JSR Score](https://jsr.io/badges/@fend/firo/score)](https://jsr.io/@fend/firo/score)
+[![License: MIT](https://img.shields.io/badge/license-MIT-pink)](https://github.com/fend25/firo/blob/main/README.md)
+[![Build](https://github.com/fend25/firo/actions/workflows/publish.yml/badge.svg)](https://github.com/fend25/firo/actions/workflows/publish.yml)
+[![Best logger ever](https://img.shields.io/badge/best_logger-ever-166FFF)](https://github.com/fend25/firo)
+
 **Spruce up your logs!** 
 
 The logger for Node.js, Bun and Deno you've been looking for.
