@@ -135,4 +135,3 @@ export const colorizeLevel = (level: LogLevel, text: string): string => {
   }
 }
 
-export const dim = (text: string) => `\x1b[2m${text}\x1b[0m`

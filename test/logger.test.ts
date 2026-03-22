@@ -151,6 +151,16 @@ test('addContext — custom color is preserved and used in output', () => {
   assert.ok(stdout.includes('\x1b[38;5;214m'), 'Should use custom 256-color code')
 })
 
+test('hasInContext — returns true for existing key', () => {
+  const {fn} = createSpyTransport()
+  const log = createLogger({transport: fn})
+
+  log.addContext('service', 'auth')
+
+  assert.strictEqual(log.hasInContext('service'), true)
+  assert.strictEqual(log.hasInContext('missing'), false)
+})
+
 test('removeFromContext — removes by key', () => {
   const {fn, calls} = createSpyTransport()
   const log = createLogger({transport: fn})

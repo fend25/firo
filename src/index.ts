@@ -183,6 +183,7 @@ const createLoggerInternal = (config: LoggerConfig, parentContext: ContextItem[]
     child,
     addContext,
     getContext,
+    hasInContext,
     removeFromContext: removeKeyFromContext,
   })
 }

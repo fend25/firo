@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { getColorIndex, colorize, colorizeLevel, dim, LOG_LEVELS, FIRO_COLORS } from '../src/utils.ts'
+import { getColorIndex, colorize, colorizeLevel, LOG_LEVELS, FIRO_COLORS } from '../src/utils.ts'
 
 test('LOG_LEVELS ordering', () => {
   assert.ok(LOG_LEVELS.debug < LOG_LEVELS.info)
@@ -53,10 +53,6 @@ test('colorizeLevel — warn wraps yellow', () => {
 
 test('colorizeLevel — debug wraps dim', () => {
   assert.strictEqual(colorizeLevel('debug', 'verbose'), '\x1b[2mverbose\x1b[0m')
-})
-
-test('dim wraps with ANSI dim', () => {
-  assert.strictEqual(dim('text'), '\x1b[2mtext\x1b[0m')
 })
 
 test('FIRO_COLORS — has 30 named colors', () => {

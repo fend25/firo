@@ -1,6 +1,6 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {colorize, colorizeLevel, dim, TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from './utils.ts'
+import {colorize, colorizeLevel, TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from './utils.ts'
 
 // --- DEV Transport Factory ---
 
