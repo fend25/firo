@@ -43,7 +43,8 @@
     "check": "tsc --noEmit && node --import tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
     "demo": "tsx demo.ts",
-    "bench": "tsx benchmark/prod.ts > /dev/null"
+    "bench": "tsx benchmark/prod.ts > /dev/null",
+    "bump": "bumpp --files package.json --files jsr.json --commit \"v%s\" --no-push"
   },
   "packageManager": "pnpm@10.32.1",
   "engines": {
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "bumpp": "^11.0.1",
     "tsup": "^8.5.1",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3"
