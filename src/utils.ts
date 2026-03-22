@@ -123,7 +123,7 @@ export const colorize = (text: string, colorIndex: number, color?: string): stri
 
 // --- Shared serialization utils ---
 
-export const jsonReplacer = (_key: string, value: unknown) =>
+export const jsonReplacer = (_key: string, value: unknown): unknown =>
   typeof value === 'bigint' ? value.toString() : value
 
 export const safeStringify = (obj: unknown): string => {
@@ -142,7 +142,7 @@ export const wrapToError = (obj: unknown): Error => {
 }
 
 // Serialize an error-like value to a plain object
-export const serializeError = (_err: unknown) => {
+export const serializeError = (_err: unknown): Record<string, unknown> => {
   const err = wrapToError(_err)
   return {
     message: err.message,
