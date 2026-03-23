@@ -729,9 +729,9 @@ test('falsy context values (0, false, null) are preserved', () => {
   assert.strictEqual(calls[0].context[2].value, null)
 })
 
-test('useAllColors — auto-hash can assign extended palette indices (10+)', () => {
+test('useSafeColors: false (default) — auto-hash can assign extended palette indices (10+)', () => {
   const {fn, calls} = createSpyFormatter()
-  const log = createFiro({formatter: fn, useAllColors: true})
+  const log = createFiro({formatter: fn, useSafeColors: false})
 
   // Add enough keys to statistically hit extended indices
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
@@ -742,9 +742,9 @@ test('useAllColors — auto-hash can assign extended palette indices (10+)', () 
   assert.ok(indices.some(i => i >= 10), `Expected at least one index >= 10, got: ${indices}`)
 })
 
-test('useAllColors: false — auto-hash stays in safe zone 0-9', () => {
+test('useSafeColors: true — auto-hash stays in safe zone 0-9', () => {
   const {fn, calls} = createSpyFormatter()
-  const log = createFiro({formatter: fn, useAllColors: false})
+  const log = createFiro({formatter: fn, useSafeColors: true})
 
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
   for (const key of keys) log.addContext(key, key)

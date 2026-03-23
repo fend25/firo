@@ -294,7 +294,7 @@ log.addContext('span', { value: 'xyz', color: '38;2;255;105;180' })  // truecolo
 If your terminal doesn't support 256 colors, you can restrict auto-hash to 10 basic terminal-safe colors:
 
 ```ts
-const log = createFiro({ useAllColors: false })
+const log = createFiro({ useSafeColors: true })
 ```
 
 ## Prod formatter options
@@ -475,7 +475,7 @@ Run the benchmark yourself: `pnpm bench`
 | `formatter` | `FormatterFn` | — | Custom formatter, overrides `mode` |
 | `devFormatterConfig` | `DevFormatterConfig` | — | Options for the built-in dev formatter |
 | `prodFormatterConfig` | `ProdFormatterConfig` | — | Options for the built-in JSON prod formatter |
-| `useAllColors` | `boolean` | `true` | Use all 30 palette colors for auto-hash (set `false` for 10 safe colors) |
+| `useSafeColors` | `boolean` | `false` | Restrict auto-hash to 10 terminal-safe colors (set `true` for basic terminals) |
 
 ### Context options
 

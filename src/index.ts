@@ -25,8 +25,8 @@ export type LoggerConfig = {
   devFormatterConfig?: DevFormatterConfig
   /** Options for the built-in prod formatter (e.g. timestamp format). */
   prodFormatterConfig?: ProdFormatterConfig
-  /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to true. Set to false to restrict to 10 terminal-safe colors. */
-  useAllColors?: boolean
+  /** Restrict auto-assigned context badge colors to 10 terminal-safe colors. Defaults to false (all 30 palette colors are used). */
+  useSafeColors?: boolean
 }
 
 /**
@@ -92,12 +92,12 @@ export * as FiroUtils from './utils.ts'
  * @returns A fully configured `Firo` instance.
  */
 export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): Firo => {
-  const useAllColors = config.useAllColors ?? true
+  const useSafeColors = config.useSafeColors ?? false
   const fill = (item: ContextItem): ContextItemWithOptions => ({
     ...item,
     colorIndex: (typeof item.colorIndex === 'number')
       ? item.colorIndex
-      : getColorIndex(item.key, useAllColors),
+      : getColorIndex(item.key, useSafeColors),
     color: item.color,
     omitKey: item.omitKey ?? false,
   })
@@ -149,12 +149,12 @@ export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem
         const { value: extValue, ...opts } = value as ContextExtension
         return {key, value: extValue, ...opts}
       }
-      return {key, value: value as ContextValue, colorIndex: getColorIndex(key, useAllColors)}
+      return {key, value: value as ContextValue, colorIndex: getColorIndex(key, useSafeColors)}
     })
 
     // Pass current context snapshot + new items.
     // Reuse the same formatter instance to avoid recreating it.
-    return createFiro({formatter, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
+    return createFiro({formatter, minLevel: minLevelName, useSafeColors}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {

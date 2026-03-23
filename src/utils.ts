@@ -106,7 +106,7 @@ const COLORS_LIST = Object.values(FIRO_COLORS)
 const SAFE_COLORS_COUNT = 10
 
 /** Hash a string to a stable color palette index. Similar strings land on different colors. */
-export const getColorIndex = (str: string, useAllColors = false): number => {
+export const getColorIndex = (str: string, useSafeColors = false): number => {
   let hash = 0
 
   // Produces an integer hash from a string.
@@ -116,7 +116,7 @@ export const getColorIndex = (str: string, useAllColors = false): number => {
   for (let i = 0, len = str.length; i < len; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash)
   }
-  const range = useAllColors ? COLORS_LIST.length : SAFE_COLORS_COUNT
+  const range = useSafeColors ? SAFE_COLORS_COUNT : COLORS_LIST.length
   return Math.abs(hash % range)
 }
 

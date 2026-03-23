@@ -12,9 +12,16 @@ test('getColorIndex — deterministic', () => {
   assert.strictEqual(getColorIndex('service'), getColorIndex('service'))
 })
 
-test('getColorIndex — in range 0..9', () => {
+test('getColorIndex — default range 0..29 (all colors)', () => {
   for (const str of ['a', 'foo', 'user-1', 'user-2', '', 'a-very-long-string-value']) {
     const idx = getColorIndex(str)
+    assert.ok(idx >= 0 && idx <= 29, `"${str}" gave index ${idx}`)
+  }
+})
+
+test('getColorIndex — safe range 0..9 when useSafeColors', () => {
+  for (const str of ['a', 'foo', 'user-1', 'user-2', '', 'a-very-long-string-value']) {
+    const idx = getColorIndex(str, true)
     assert.ok(idx >= 0 && idx <= 9, `"${str}" gave index ${idx}`)
   }
 })
