@@ -1,15 +1,15 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {createFiro} from '../src/index.ts'
-import type {TransportFn, ContextItemWithOptions, LogLevel, LogOptions} from '../src/utils.ts'
+import type {FormatterFn, ContextItemWithOptions, LogLevel, LogOptions} from '../src/utils.ts'
 
 // --- Helpers ---
 
 type SpyCall = {level: LogLevel; context: ContextItemWithOptions[]; msg: unknown; data: unknown; opts?: LogOptions}
 
-function createSpyTransport() {
+function createSpyFormatter() {
   const calls: SpyCall[] = []
-  const fn: TransportFn = (level, context, msg, data, opts) => {
+  const fn: FormatterFn = (level, context, msg, data, opts) => {
     calls.push({level, context: [...context], msg, data, opts})
   }
   return {fn, calls}
@@ -34,8 +34,8 @@ function captureOutput(fn: () => void): {stdout: string; stderr: string} {
 // --- Log level filtering ---
 
 test('default minLevel is debug — all levels pass through', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.debug('d')
   log.info('i')
@@ -46,8 +46,8 @@ test('default minLevel is debug — all levels pass through', () => {
 })
 
 test('minLevel: info — suppresses debug', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, minLevel: 'info'})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn, minLevel: 'info'})
 
   log.debug('d')
   log.info('i')
@@ -58,32 +58,8 @@ test('minLevel: info — suppresses debug', () => {
 })
 
 test('minLevel: error — only error passes', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, minLevel: 'error'})
-
-  log.debug('d')
-  log.info('i')
-  log.warn('w')
-  log.error('e')
-
-  assert.deepStrictEqual(calls.map(c => c.level), ['error'])
-})
-
-test('minLevelInDev overrides minLevel in dev mode', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, mode: 'dev', minLevel: 'debug', minLevelInDev: 'warn'})
-
-  log.debug('d')
-  log.info('i')
-  log.warn('w')
-  log.error('e')
-
-  assert.deepStrictEqual(calls.map(c => c.level), ['warn', 'error'])
-})
-
-test('minLevelInProd overrides minLevel in prod mode', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, mode: 'prod', minLevel: 'debug', minLevelInProd: 'error'})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn, minLevel: 'error'})
 
   log.debug('d')
   log.info('i')
@@ -95,9 +71,9 @@ test('minLevelInProd overrides minLevel in prod mode', () => {
 
 // --- Context ---
 
-test('addContext — appears in transport calls', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+test('addContext — appears in formatter calls', () => {
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext('service', 'auth')
   log.info('test')
@@ -108,8 +84,8 @@ test('addContext — appears in transport calls', () => {
 })
 
 test('addContext — object form', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext({key: 'env', value: 'prod', omitKey: true})
   log.info('test')
@@ -119,8 +95,8 @@ test('addContext — object form', () => {
 })
 
 test('addContext — explicit colorIndex is preserved', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext({key: 'x', value: 'y', colorIndex: 7})
   log.info('test')
@@ -129,15 +105,15 @@ test('addContext — explicit colorIndex is preserved', () => {
 })
 
 test('addContext — custom color is preserved and used in output', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext({key: 'trace', value: 'abc', color: '38;5;214'})
   log.info('test')
 
   assert.strictEqual(calls[0].context[0].color, '38;5;214')
 
-  // Verify it renders with the custom color in dev transport
+  // Verify it renders with the custom color in dev formatter
   const devLog = createFiro({mode: 'dev'})
   devLog.addContext({key: 'trace', value: 'abc', color: '38;5;214'})
   let stdout = ''
@@ -152,8 +128,8 @@ test('addContext — custom color is preserved and used in output', () => {
 })
 
 test('hasInContext — returns true for existing key', () => {
-  const {fn} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext('service', 'auth')
 
@@ -162,8 +138,8 @@ test('hasInContext — returns true for existing key', () => {
 })
 
 test('removeFromContext — removes by key', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext('a', '1')
   log.addContext('b', '2')
@@ -175,16 +151,16 @@ test('removeFromContext — removes by key', () => {
 })
 
 test('removeFromContext — non-existent key does not throw', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   log.removeFromContext('nope')
   log.info('test')
   assert.strictEqual(calls[0].context.length, 0)
 })
 
 test('getContext returns current context', () => {
-  const {fn} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext('a', '1')
   log.addContext('b', '2')
@@ -198,8 +174,8 @@ test('getContext returns current context', () => {
 // --- Per-call context ---
 
 test('opts.ctx adds inline context for single call', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   log.addContext('service', 'auth')
 
   log.info('with ctx', undefined, {ctx: [{key: 'reqId', value: '42'}]})
@@ -211,8 +187,8 @@ test('opts.ctx adds inline context for single call', () => {
 })
 
 test('opts.ctx works on error', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.error('boom', new Error('fail'), {ctx: [{key: 'op', value: 'delete'}]})
 
@@ -223,8 +199,8 @@ test('opts.ctx works on error', () => {
 // --- Child loggers ---
 
 test('child inherits parent context', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   log.addContext('service', 'auth')
 
   const child = log.child({requestId: 123})
@@ -237,8 +213,8 @@ test('child inherits parent context', () => {
 })
 
 test('child context does not mutate parent', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   log.addContext('service', 'auth')
 
   const child = log.child({requestId: 123})
@@ -252,8 +228,8 @@ test('child context does not mutate parent', () => {
 })
 
 test('parent mutation after child does not affect child', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   log.addContext('a', '1')
 
   const child = log.child({b: '2'})
@@ -265,8 +241,8 @@ test('parent mutation after child does not affect child', () => {
 })
 
 test('deeply nested children accumulate context', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   const deep = log.child({a: 1}).child({b: 2}).child({c: 3})
   deep.info('test')
@@ -275,8 +251,8 @@ test('deeply nested children accumulate context', () => {
 })
 
 test('child inherits minLevel', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, minLevel: 'warn'})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn, minLevel: 'warn'})
 
   const child = log.child({x: 1})
   child.debug('d')
@@ -290,8 +266,8 @@ test('child inherits minLevel', () => {
 // --- Error method ---
 
 test('error(msg) — string only', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.error('something broke')
 
@@ -301,8 +277,8 @@ test('error(msg) — string only', () => {
 })
 
 test('error(msg, err) — string + Error', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   const err = new Error('db failed')
 
   log.error('query failed', err)
@@ -312,8 +288,8 @@ test('error(msg, err) — string + Error', () => {
 })
 
 test('error(err) — Error only', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   const err = new Error('boom')
 
   log.error(err)
@@ -322,9 +298,9 @@ test('error(err) — Error only', () => {
   assert.strictEqual(calls[0].data, undefined)
 })
 
-// --- Dev transport ---
+// --- Dev formatter ---
 
-test('dev transport — writes to stdout for info', () => {
+test('dev formatter — writes to stdout for info', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout, stderr} = captureOutput(() => log.info('hello'))
 
@@ -332,21 +308,21 @@ test('dev transport — writes to stdout for info', () => {
   assert.strictEqual(stderr, '')
 })
 
-test('dev transport — writes to stderr for error', () => {
+test('dev formatter — writes to stderr for error', () => {
   const log = createFiro({mode: 'dev'})
   const {stderr} = captureOutput(() => log.error('bad'))
 
   assert.ok(stderr.includes('bad'))
 })
 
-test('dev transport — timestamp format HH:MM:SS.mmm', () => {
+test('dev formatter — timestamp format HH:MM:SS.mmm', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(/\d{2}:\d{2}:\d{2}[.,]\d{3}/.test(stdout), `No timestamp in: ${stdout}`)
 })
 
-test('dev transport — context rendered as [key:value]', () => {
+test('dev formatter — context rendered as [key:value]', () => {
   const log = createFiro({mode: 'dev'})
   log.addContext('svc', 'api')
   const {stdout} = captureOutput(() => log.info('test'))
@@ -354,7 +330,7 @@ test('dev transport — context rendered as [key:value]', () => {
   assert.ok(stdout.includes('[svc:api]'))
 })
 
-test('dev transport — omitKey renders [value] only', () => {
+test('dev formatter — omitKey renders [value] only', () => {
   const log = createFiro({mode: 'dev'})
   log.addContext({key: 'userId', value: 'bob', omitKey: true})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -363,7 +339,7 @@ test('dev transport — omitKey renders [value] only', () => {
   assert.ok(!stdout.includes('[userId:bob]'))
 })
 
-test('dev transport — hideIn dev hides context badge', () => {
+test('dev formatter — hideIn dev hides context badge', () => {
   const log = createFiro({mode: 'dev'})
   log.addContext('svc', 'api')
   log.addContext('traceId', {value: 'abc-123', hideIn: 'dev'})
@@ -374,7 +350,7 @@ test('dev transport — hideIn dev hides context badge', () => {
   assert.ok(!stdout.includes('abc-123'))
 })
 
-test('dev transport — hideIn prod still shows in dev', () => {
+test('dev formatter — hideIn prod still shows in dev', () => {
   const log = createFiro({mode: 'dev'})
   log.addContext('debugInfo', {value: 'xyz', hideIn: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -382,7 +358,7 @@ test('dev transport — hideIn prod still shows in dev', () => {
   assert.ok(stdout.includes('[debugInfo:xyz]'))
 })
 
-test('dev transport — hideIn dev works with child context', () => {
+test('dev formatter — hideIn dev works with child context', () => {
   const log = createFiro({mode: 'dev'})
   const child = log.child({traceId: {value: 'trace-99', hideIn: 'dev'}})
   const {stdout} = captureOutput(() => child.info('test'))
@@ -390,21 +366,21 @@ test('dev transport — hideIn dev works with child context', () => {
   assert.ok(!stdout.includes('trace-99'))
 })
 
-test('dev transport — error has [ERROR] prefix', () => {
+test('dev formatter — error has [ERROR] prefix', () => {
   const log = createFiro({mode: 'dev'})
   const {stderr} = captureOutput(() => log.error('oops'))
 
   assert.ok(stderr.includes('[ERROR]'))
 })
 
-test('dev transport — warn has [WARN] prefix', () => {
+test('dev formatter — warn has [WARN] prefix', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.warn('careful'))
 
   assert.ok(stdout.includes('[WARN]'))
 })
 
-test('dev transport — debug lines are dimmed', () => {
+test('dev formatter — debug lines are dimmed', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.debug('dim me'))
 
@@ -412,7 +388,7 @@ test('dev transport — debug lines are dimmed', () => {
   assert.ok(stdout.includes('\x1b[2mdim me\x1b[0m'), 'debug message should be dimmed')
 })
 
-test('dev transport — data is serialized', () => {
+test('dev formatter — data is serialized', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
@@ -420,7 +396,7 @@ test('dev transport — data is serialized', () => {
   assert.ok(stdout.includes('200'))
 })
 
-test('dev transport — info with Error as data', () => {
+test('dev formatter — info with Error as data', () => {
   const log = createFiro({mode: 'dev'})
   const err = new Error('whoops')
   const {stdout} = captureOutput(() => log.info('something failed', err))
@@ -430,14 +406,14 @@ test('dev transport — info with Error as data', () => {
   assert.ok(stdout.includes('at '), 'Should output stack trace')
 })
 
-test('dev transport — ends with newline', () => {
+test('dev formatter — ends with newline', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
 })
 
-test('dev transport — handles circular structures without crashing', () => {
+test('dev formatter — handles circular structures without crashing', () => {
   const log = createFiro({mode: 'dev'})
   const obj: any = {a: 1}
   obj.self = obj // circular reference
@@ -450,10 +426,10 @@ test('dev transport — handles circular structures without crashing', () => {
   assert.ok(stderr.includes('[Circular *1]'))
 })
 
-test('dev transport — applies devTransportConfig time options', () => {
+test('dev formatter — applies devFormatterConfig time options', () => {
   const log = createFiro({
     mode: 'dev',
-    devTransportConfig: {
+    devFormatterConfig: {
       timeOptions: {hour: 'numeric', minute: undefined, second: undefined, fractionalSecondDigits: undefined}
     }
   })
@@ -464,7 +440,7 @@ test('dev transport — applies devTransportConfig time options', () => {
   assert.match(stdout, /\[\d{1,2}\]/)
 })
 
-test('dev transport — stringifies object message instead of [object Object]', () => {
+test('dev formatter — stringifies object message instead of [object Object]', () => {
   const log = createFiro({mode: 'dev'})
   //@ts-expect-error — info() expects string, but we test runtime handling of objects
   const {stdout} = captureOutput(() => log.info({status: 'ok', count: 42}))
@@ -475,9 +451,9 @@ test('dev transport — stringifies object message instead of [object Object]', 
   assert.ok(stdout.includes('42'), 'Should output numeric values')
 })
 
-// --- Prod transport ---
+// --- Prod formatter ---
 
-test('prod transport — valid NDJSON', () => {
+test('prod formatter — valid NDJSON', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('hello'))
 
@@ -487,7 +463,7 @@ test('prod transport — valid NDJSON', () => {
   assert.ok(parsed.timestamp)
 })
 
-test('prod transport — context flattened into record', () => {
+test('prod formatter — context flattened into record', () => {
   const log = createFiro({mode: 'prod'})
   log.addContext('service', 'api')
   log.addContext('env', 'prod')
@@ -498,7 +474,7 @@ test('prod transport — context flattened into record', () => {
   assert.strictEqual(parsed.env, 'prod')
 })
 
-test('prod transport — hideIn prod hides context from JSON', () => {
+test('prod formatter — hideIn prod hides context from JSON', () => {
   const log = createFiro({mode: 'prod'})
   log.addContext('service', 'api')
   log.addContext('debugInfo', {value: 'xyz', hideIn: 'prod'})
@@ -509,7 +485,7 @@ test('prod transport — hideIn prod hides context from JSON', () => {
   assert.strictEqual(parsed.debugInfo, undefined)
 })
 
-test('prod transport — hideIn dev still shows in prod', () => {
+test('prod formatter — hideIn dev still shows in prod', () => {
   const log = createFiro({mode: 'prod'})
   log.addContext('traceId', {value: 'abc-123', hideIn: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -518,7 +494,7 @@ test('prod transport — hideIn dev still shows in prod', () => {
   assert.strictEqual(parsed.traceId, 'abc-123')
 })
 
-test('prod transport — hideIn prod works with child context', () => {
+test('prod formatter — hideIn prod works with child context', () => {
   const log = createFiro({mode: 'prod'})
   const child = log.child({debugTag: {value: 'dbg', hideIn: 'prod'}})
   const {stdout} = captureOutput(() => child.info('test'))
@@ -527,7 +503,7 @@ test('prod transport — hideIn prod works with child context', () => {
   assert.strictEqual(parsed.debugTag, undefined)
 })
 
-test('prod transport — data field for non-error', () => {
+test('prod formatter — data field for non-error', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
@@ -535,7 +511,7 @@ test('prod transport — data field for non-error', () => {
   assert.strictEqual(parsed.data.status, 200)
 })
 
-test('prod transport — error with msg + Error', () => {
+test('prod formatter — error with msg + Error', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('db down')
   const {stdout} = captureOutput(() => log.error('query failed', err))
@@ -547,7 +523,7 @@ test('prod transport — error with msg + Error', () => {
   assert.ok(parsed.error.stack)
 })
 
-test('prod transport — error writes to stdout (not stderr)', () => {
+test('prod formatter — error writes to stdout (not stderr)', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout, stderr} = captureOutput(() => log.error('bad'))
 
@@ -555,14 +531,14 @@ test('prod transport — error writes to stdout (not stderr)', () => {
   assert.strictEqual(stderr, '')
 })
 
-test('prod transport — ends with newline', () => {
+test('prod formatter — ends with newline', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
   assert.ok(stdout.endsWith('\n'))
 })
 
-test('prod transport — handles circular structures without crashing', () => {
+test('prod formatter — handles circular structures without crashing', () => {
   const log = createFiro({mode: 'prod'})
   const obj: any = {a: 1}
   obj.self = obj
@@ -585,7 +561,7 @@ test('prod transport — handles circular structures without crashing', () => {
   assert.ok(typeof parsedInfo.data === 'string' && parsedInfo.data.includes('[Circular *1]'))
 })
 
-test('prod transport — error preserves data object', () => {
+test('prod formatter — error preserves data object', () => {
   const log = createFiro({mode: 'prod'})
 
   const {stdout} = captureOutput(() => {
@@ -599,7 +575,7 @@ test('prod transport — error preserves data object', () => {
   assert.strictEqual(parsed.data.reason, 'timeout')
 })
 
-test('prod transport — info with Error as data', () => {
+test('prod formatter — info with Error as data', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('db timeout')
   const {stdout} = captureOutput(() => log.info('query slow', err))
@@ -611,7 +587,7 @@ test('prod transport — info with Error as data', () => {
   assert.ok(parsed.data.stack)
 })
 
-test('prod transport — error with cause chain', () => {
+test('prod formatter — error with cause chain', () => {
   const log = createFiro({mode: 'prod'})
   const root = new Error('connection refused')
   const wrapped = new Error('Query failed', {cause: root})
@@ -623,7 +599,7 @@ test('prod transport — error with cause chain', () => {
   assert.ok(parsed.error.cause.stack)
 })
 
-test('prod transport — error with Error + extra data', () => {
+test('prod formatter — error with Error + extra data', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('boom')
   const {stdout} = captureOutput(() => log.error(err, {reqId: 123}))
@@ -635,7 +611,7 @@ test('prod transport — error with Error + extra data', () => {
   assert.strictEqual(parsed.data.reqId, 123)
 })
 
-test('prod transport — error with non-Error cause', () => {
+test('prod formatter — error with non-Error cause', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('fail', {cause: 'some string reason'})
   const {stdout} = captureOutput(() => log.error(err))
@@ -644,9 +620,9 @@ test('prod transport — error with non-Error cause', () => {
   assert.strictEqual(parsed.error.cause, 'some string reason')
 })
 
-// --- Prod transport timestamp config ---
+// --- Prod formatter timestamp config ---
 
-test('prod transport — ISO timestamp by default', () => {
+test('prod formatter — ISO timestamp by default', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -656,9 +632,9 @@ test('prod transport — ISO timestamp by default', () => {
   assert.ok(parsed.timestamp.endsWith('Z'))
 })
 
-test('prod transport — epoch timestamp', () => {
+test('prod formatter — epoch timestamp', () => {
   const before = Date.now()
-  const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
+  const log = createFiro({mode: 'prod', prodFormatterConfig: {timestamp: 'epoch'}})
   const {stdout} = captureOutput(() => log.info('test'))
   const after = Date.now()
 
@@ -667,8 +643,8 @@ test('prod transport — epoch timestamp', () => {
   assert.ok(parsed.timestamp >= before && parsed.timestamp <= after)
 })
 
-test('prod transport — epoch timestamp with context and data', () => {
-  const log = createFiro({mode: 'prod', prodTransportConfig: {timestamp: 'epoch'}})
+test('prod formatter — epoch timestamp with context and data', () => {
+  const log = createFiro({mode: 'prod', prodFormatterConfig: {timestamp: 'epoch'}})
   log.addContext('service', 'api')
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
 
@@ -678,9 +654,9 @@ test('prod transport — epoch timestamp with context and data', () => {
   assert.strictEqual(parsed.data.status, 200)
 })
 
-// --- Mode-based transport selection ---
+// --- Mode-based formatter selection ---
 
-test('default mode uses dev transport (ANSI in output)', () => {
+test('default mode uses dev formatter (ANSI in output)', () => {
   const log = createFiro()
   log.addContext('svc', 'api')
   const {stdout} = captureOutput(() => log.info('test'))
@@ -688,7 +664,7 @@ test('default mode uses dev transport (ANSI in output)', () => {
   assert.ok(stdout.includes('\x1b['), 'dev mode should produce ANSI codes (e.g. for context badges)')
 })
 
-test('mode: prod uses JSON transport', () => {
+test('mode: prod uses JSON formatter', () => {
   const log = createFiro({mode: 'prod'})
   const {stdout} = captureOutput(() => log.info('test'))
 
@@ -696,9 +672,9 @@ test('mode: prod uses JSON transport', () => {
   assert.strictEqual(typeof parsed, 'object')
 })
 
-test('explicit transport overrides mode', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({mode: 'prod', transport: fn})
+test('explicit formatter overrides mode', () => {
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({mode: 'prod', formatter: fn})
 
   log.info('test')
 
@@ -706,8 +682,8 @@ test('explicit transport overrides mode', () => {
 })
 
 test('`log` is callable (shorthand for info)', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log('shorthand')
 
@@ -717,8 +693,8 @@ test('`log` is callable (shorthand for info)', () => {
 })
 
 test('`log` callable shorthand accepts data and opts', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log('with data', {foo: 'bar'}, {pretty: true})
 
@@ -728,8 +704,8 @@ test('`log` callable shorthand accepts data and opts', () => {
 })
 
 test('child loggers are also callable', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
   const child = log.child({reqId: 'abc'})
 
   child('child log')
@@ -740,8 +716,8 @@ test('child loggers are also callable', () => {
 })
 
 test('falsy context values (0, false, null) are preserved', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
 
   log.addContext('count', 0)
   log.addContext('active', false)
@@ -754,8 +730,8 @@ test('falsy context values (0, false, null) are preserved', () => {
 })
 
 test('useAllColors — auto-hash can assign extended palette indices (10+)', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, useAllColors: true})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn, useAllColors: true})
 
   // Add enough keys to statistically hit extended indices
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
@@ -767,8 +743,8 @@ test('useAllColors — auto-hash can assign extended palette indices (10+)', () 
 })
 
 test('useAllColors: false — auto-hash stays in safe zone 0-9', () => {
-  const {fn, calls} = createSpyTransport()
-  const log = createFiro({transport: fn, useAllColors: false})
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn, useAllColors: false})
 
   const keys = Array.from({length: 30}, (_, i) => `key-${i}`)
   for (const key of keys) log.addContext(key, key)

@@ -56,7 +56,7 @@ export type LogOptions = {
 }
 
 /** The signature of a function responsible for formatting and emitting log records. */
-export type TransportFn = (
+export type FormatterFn = (
   level: LogLevel,
   context: ContextItemWithOptions[],
   message: string | Error | unknown,
@@ -164,7 +164,7 @@ export const serializeError = (_err: unknown): Record<string, unknown> => {
   return result
 }
 
-/** Extract a human-readable message string from any log input. Useful for building custom transports. */
+/** Extract a human-readable message string from any log input. Useful for building custom formatters. */
 export const extractMessage = (msg: string | Error | unknown): string =>
   typeof msg === 'string'
     ? msg

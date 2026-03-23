@@ -6,29 +6,25 @@ import {
   LOG_LEVELS,
   LogLevel,
   LogOptions,
-  TransportFn
+  FormatterFn
 } from './utils.ts'
-import {createDevTransport, DevTransportConfig} from './transport_dev.ts'
-import {createProdTransport, ProdTransportConfig} from './transport_prod.ts'
+import {createDevFormatter, DevFormatterConfig} from './formatter_dev.ts'
+import {createProdFormatter, ProdFormatterConfig} from './formatter_prod.ts'
 
 /**
  * Configuration options for creating a logger instance.
  */
 export type LoggerConfig = {
-  /** The minimum log level for both modes. Overridden by mode-specific thresholds. */
+  /** The minimum log level. */
   minLevel?: LogLevel
-  /** Minimum log level to emit in 'dev' mode. */
-  minLevelInDev?: LogLevel
-  /** Minimum log level to emit in 'prod' mode. */
-  minLevelInProd?: LogLevel
-  /** Specifies the built-in transport to use. Defaults to 'dev'. */
+  /** Selects the built-in formatter. Defaults to 'dev'. */
   mode?: 'dev' | 'prod'
-  /** Provide a custom transport function to override the built-in behaviors. */
-  transport?: TransportFn // Custom transport override
-  /** Options for fine-tuning the built-in development transport (e.g. timestamp format). */
-  devTransportConfig?: DevTransportConfig
-  /** Options for the built-in prod transport (e.g. timestamp format). */
-  prodTransportConfig?: ProdTransportConfig
+  /** Provide a custom formatter function to override the built-in behaviors. */
+  formatter?: FormatterFn
+  /** Options for fine-tuning the built-in development formatter (e.g. timestamp format). */
+  devFormatterConfig?: DevFormatterConfig
+  /** Options for the built-in prod formatter (e.g. timestamp format). */
+  prodFormatterConfig?: ProdFormatterConfig
   /** Use the full extended color palette (30 colors including 256-color) for auto-assigned context badges. Defaults to true. Set to false to restrict to 10 terminal-safe colors. */
   useAllColors?: boolean
 }
@@ -80,19 +76,19 @@ export interface Firo {
   hasInContext(key: string): boolean
 }
 
-export type { DevTransportConfig } from './transport_dev.ts'
-export type { ProdTransportConfig, TimestampFormat } from './transport_prod.ts'
-export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, TransportFn} from './utils.ts'
+export type { DevFormatterConfig } from './formatter_dev.ts'
+export type { ProdFormatterConfig, TimestampFormat } from './formatter_prod.ts'
+export type {LogLevel, ContextValue, ContextOptions, ContextExtension, ContextItem, ContextItemWithOptions, LogOptions, FormatterFn} from './utils.ts'
 export { FIRO_COLORS } from './utils.ts'
-export {createDevTransport} from './transport_dev.ts'
-export {createProdTransport} from './transport_prod.ts'
+export {createDevFormatter} from './formatter_dev.ts'
+export {createProdFormatter} from './formatter_prod.ts'
 
 export * as FiroUtils from './utils.ts'
 
 /**
  * Creates a new logger instance with the specified configuration.
  *
- * @param config Optional configuration for log levels, mode, and transports.
+ * @param config Optional configuration for log levels, format, and formatters.
  * @returns A fully configured `Firo` instance.
  */
 export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): Firo => {
@@ -118,13 +114,11 @@ export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem
   // We copy the parent context so mutations here do not affect the parent.
   const context: ContextItemWithOptions[] = [...parentContext.map(fill)]
 
-  // Resolve transport once at creation time
-  const transport: TransportFn = config.transport
-    ?? (config.mode === 'prod' ? createProdTransport(config.prodTransportConfig) : createDevTransport(config.devTransportConfig))
+  // Resolve formatter once at creation time
+  const formatter: FormatterFn = config.formatter
+    ?? (config.mode === 'prod' ? createProdFormatter(config.prodFormatterConfig) : createDevFormatter(config.devFormatterConfig))
 
-  const minLevelName: LogLevel | undefined = config.mode === 'prod'
-    ? config.minLevelInProd ?? config.minLevel
-    : config.minLevelInDev ?? config.minLevel
+  const minLevelName: LogLevel | undefined = config.minLevel
   const minLevel = LOG_LEVELS[minLevelName ?? 'debug']
 
   const getContext = () => context
@@ -159,27 +153,27 @@ export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem
     })
 
     // Pass current context snapshot + new items.
-    // Reuse the same transport instance to avoid recreating it.
-    return createFiro({transport, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
+    // Reuse the same formatter instance to avoid recreating it.
+    return createFiro({formatter, minLevel: minLevelName, useAllColors}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.debug) return
-    transport('debug', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
+    formatter('debug', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
   }
   const info = (msg: string, data?: unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.info) return
-    transport('info', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
+    formatter('info', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
   }
   const warn = (msg: string, data?: unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.warn) return
-    transport('warn', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
+    formatter('warn', appendContextWithInvokeContext(context, opts?.ctx), msg, data, opts)
   }
 
   // error implementation accepts a union type; Firo overloads expose a clean API to callers
   const error = (msgOrError: string | Error | unknown, err?: Error | unknown, opts?: LogOptions) => {
     if (minLevel > LOG_LEVELS.error) return
-    transport('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)
+    formatter('error', appendContextWithInvokeContext(context, opts?.ctx), msgOrError as any, err, opts)
   }
 
   const logInstance = ((msg: string, data?: unknown, opts?: LogOptions) => {

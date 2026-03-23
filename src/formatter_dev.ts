@@ -1,11 +1,11 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {colorize, colorizeLevel, TransportFn, wrapToError} from './utils.ts'
+import {colorize, colorizeLevel, FormatterFn, wrapToError} from './utils.ts'
 
 /**
- * Configuration options for the development transport.
+ * Configuration options for the development formatter.
  */
-export type DevTransportConfig = {
+export type DevFormatterConfig = {
   /** The locale used for formatting the timestamp. Defaults to the system locale. */
   locale?: string
   /** Standard Intl.DateTimeFormatOptions to customize the timestamp output. */
@@ -13,14 +13,14 @@ export type DevTransportConfig = {
 }
 
 /**
- * Creates a built-in transport optimized for local development.
+ * Creates a built-in formatter optimized for local development.
  * Emits colored, human-readable strings to stdout/stderr.
  *
- * @param config Optional configuration for the transport, like timestamp formats.
- * @returns A `TransportFn` that writes to the console.
+ * @param config Optional configuration for the formatter, like timestamp formats.
+ * @returns A `FormatterFn` that writes to the console.
  */
-export const createDevTransport = (config: DevTransportConfig = {}): TransportFn => {
-  // Bake settings once at transport creation time
+export const createDevFormatter = (config: DevFormatterConfig = {}): FormatterFn => {
+  // Bake settings once at formatter creation time
   const locale = config.locale ?? undefined // undefined = system locale
   const timeOpts: Intl.DateTimeFormatOptions = {
     hour12: false,
@@ -31,7 +31,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     ...(config.timeOptions || {}),
   }
 
-  const transport: TransportFn = (level, context, msg, data, opts) => {
+  const formatter: FormatterFn = (level, context, msg, data, opts) => {
     const now = new Date()
 
     // Build timestamp using closed-over locale settings
@@ -83,5 +83,5 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     else process.stdout.write(finalLine)
   }
 
-  return transport
+  return formatter
 }

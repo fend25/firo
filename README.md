@@ -7,7 +7,7 @@
 [![Build](https://github.com/fend25/firo/actions/workflows/publish.yml/badge.svg)](https://github.com/fend25/firo/actions/workflows/publish.yml)
 [![Best logger ever](https://img.shields.io/badge/best_logger-ever-166FFF)](https://github.com/fend25/firo)
 
-**Spruce up your logs!** 
+**Spruce up your logs!**
 
 The logger for Node.js, Bun and Deno you've been looking for.
 
@@ -93,36 +93,6 @@ log.info('Request handled', { status: 200 })
 // {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"Request handled","data":{"status":200}}
 ```
 
-## Best practices
-
-### AsyncLocalStorage (Traceability)
-
-The best way to use **firo** in web frameworks is to store a child logger in `AsyncLocalStorage`. This gives you automatic traceability (e.g. `requestId`) across your entire call stack without passing the logger as an argument.
-
-```ts
-import { AsyncLocalStorage } from 'node:util'
-import { createFiro } from '@fend/firo'
-
-const logger = createFiro()
-const storage = new AsyncLocalStorage()
-
-// Middleware example
-function middleware(req, res, next) {
-  const reqLog = logger.child({ 
-    requestId: req.headers['x-request-id'] || 'gen-123',
-    method: req.method
-  })
-  storage.run(reqLog, next)
-}
-
-// Deeply nested function
-function someService() {
-  const log = storage.getStore() ?? logger
-  log.info('Service action performed') 
-  // Output: [requestId:gen-123] [method:GET] Service action performed
-}
-```
-
 ## Log levels
 
 Four levels, in order: `debug` → `info` → `warn` → `error`.
@@ -139,14 +109,29 @@ Debug lines are dimmed in dev mode to reduce visual noise.
 ### Filtering
 
 ```ts
-// Suppress debug in dev, keep everything in prod
-const log = createFiro({
-  minLevelInDev: 'info',
-  minLevelInProd: 'warn',
-})
-
-// Or a single threshold for both modes
 const log = createFiro({ minLevel: 'warn' })
+```
+
+## Error signatures
+
+`error()` accepts multiple call signatures:
+
+```ts
+// Message only will be automatically wrapped in an Error object to intentionally capture and preserve the stack trace
+// because stack trace with a couple of extra levels of indirection is definitely better than no stack trace at all
+log.error('Something went wrong')
+
+// Message + Error object
+log.error('Query failed', new Error('timeout'))
+
+// Error object only
+log.error(new Error('Unhandled'))
+
+// Error + extra data
+log.error(new Error('DB down'), { query: 'SELECT ...', reqId: 123 })
+
+// Anything — will be coerced to Error
+log.error(someUnknownThing)
 ```
 
 ## Context
@@ -166,36 +151,47 @@ log.info('Started')
 
 ### Context options
 
+Three ways to add context:
+
 ```ts
-// Hide the key, show only the value — useful for IDs
+// 1. Simple key-value — just the basics
+log.addContext('service', 'auth')
+
+// 2. Key + value with options — when you need control
+log.addContext('traceId', { value: 'abc-123-xyz', hideIn: 'dev' })
+log.addContext('region', { value: 'west', color: '38;5;214' })
+
+// 3. Object form — everything in one object
 log.addContext({ key: 'userId', value: 'u-789', omitKey: true })
-// renders as [u-789] instead of [userId:u-789]
+log.addContext({ key: 'span', value: 'xyz', color: '38;2;255;100;0' })
+```
+
+Available options (styles 2 and 3):
+
+```ts
+// Hide the key, show only the value: [u-789] instead of [userId:u-789]
+log.addContext({ key: 'userId', value: 'u-789', omitKey: true })
 
 // Pin a specific color by palette index (0–29)
-log.addContext({ key: 'region', value: 'west', colorIndex: 3 })
+log.addContext('region', { value: 'west', colorIndex: 3 })
 
 // Use any ANSI color — 256-color, truecolor, anything
-log.addContext({ key: 'trace', value: 'abc', color: '38;5;214' })       // 256-color orange
+log.addContext('trace', { value: 'abc', color: '38;5;214' })       // 256-color orange
 log.addContext({ key: 'span', value: 'xyz', color: '38;2;255;100;0' })  // truecolor
 
 // Hide in dev — useful for traceIds that clutter the terminal
 log.addContext('traceId', { value: 'abc-123-xyz', hideIn: 'dev' })
-// still appears in prod JSON, hidden from dev output
 
 // Hide in prod — dev-only debugging context
 log.addContext('debugTag', { value: 'perf-test', hideIn: 'prod' })
 ```
 
-### Remove context
+### Context API
 
 ```ts
+log.getContext()        // ContextItem[]
+log.hasInContext('key') // boolean
 log.removeFromContext('env')
-```
-
-### Read context
-
-```ts
-const ctx = log.getContext() // ContextItem[]
 ```
 
 ## Child loggers
@@ -241,117 +237,22 @@ log.error('Payment failed', err, {
 })
 ```
 
-## Error signatures
+## Dev formatter options
 
-`error()` accepts multiple call signatures:
-
-```ts
-// Message only will be automatically wrapped in an Error object to intentionally capture and preserve the stack trace
-// because stack trace with a couple of extra levels of indirection is definitely better than no stack trace at all
-log.error('Something went wrong')
-
-// Message + Error object
-log.error('Query failed', new Error('timeout'))
-
-// Error object only
-log.error(new Error('Unhandled'))
-
-// Error + extra data
-log.error(new Error('DB down'), { query: 'SELECT ...', reqId: 123 })
-
-// Anything — will be coerced to Error
-log.error(someUnknownThing)
-```
-
-## Custom transport
-
-Provide your own transport function to take full control of output:
-
-```ts
-import type { TransportFn } from '@fend/firo'
-
-const myTransport: TransportFn = (level, context, msg, data, opts) => {
-  // level:   'debug' | 'info' | 'warn' | 'error'
-  // context: ContextItemWithOptions[]
-  // msg:     string | Error | unknown
-  // data:    Error | unknown
-  // opts:    LogOptions | undefined
-}
-
-const log = createFiro({ transport: myTransport })
-```
-
-### FiroUtils
-
-`FiroUtils` exposes helper functions useful for building custom transports:
-
-```ts
-import { FiroUtils } from '@fend/firo'
-
-FiroUtils.wrapToError(value)      // coerce unknown → Error
-FiroUtils.serializeError(err)     // Error → plain object { message, stack, name, cause?, ... }
-FiroUtils.safeStringify(obj)      // JSON.stringify with bigint support + fallback
-FiroUtils.jsonReplacer            // replacer for JSON.stringify (handles bigint)
-FiroUtils.extractMessage(msg)     // extract message string from string | Error | unknown
-FiroUtils.colorize(text, idx)     // wrap text in ANSI color by palette index
-FiroUtils.colorizeLevel(level, t) // wrap text in level color (red/yellow/dim)
-```
-
-## Dev transport options
-
-Fine-tune the dev transport's timestamp format. For example, to remove seconds and milliseconds:
+Fine-tune the dev formatter's timestamp format. For example, to remove seconds and milliseconds:
 
 ```ts
 import { createFiro } from '@fend/firo'
 
 const log = createFiro({
-  devTransportConfig: {
+  devFormatterConfig: {
     timeOptions: {
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: undefined, 
-      fractionalSecondDigits: undefined 
+      hour: '2-digit',
+      minute: '2-digit',
+      second: undefined,
+      fractionalSecondDigits: undefined
     }
   }
-})
-```
-
-## Prod transport options
-
-Configure the prod (JSON) transport's timestamp format:
-
-```ts
-// Epoch ms (faster, same as pino)
-const log = createFiro({
-  mode: 'prod',
-  prodTransportConfig: { timestamp: 'epoch' }
-})
-// {"timestamp":1711100000000,"level":"info","message":"hello"}
-
-// ISO 8601 (default, human-readable)
-const log = createFiro({ mode: 'prod' })
-// {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"hello"}
-```
-
-### Custom destination
-
-By default, prod transport writes to `process.stdout`. You can redirect output to any object with a `.write(string)` method:
-
-```ts
-import { createFiro } from '@fend/firo'
-import { createWriteStream } from 'node:fs'
-
-// Write to a file
-const log = createFiro({
-  mode: 'prod',
-  prodTransportConfig: { dest: createWriteStream('/var/log/app.log') }
-})
-
-// Use SonicBoom for async buffered writes (same as pino)
-import SonicBoom from 'sonic-boom'
-const log = createFiro({
-  mode: 'prod',
-  prodTransportConfig: { dest: new SonicBoom({ fd: 1 }) }
 })
 ```
 
@@ -396,11 +297,117 @@ If your terminal doesn't support 256 colors, you can restrict auto-hash to 10 ba
 const log = createFiro({ useAllColors: false })
 ```
 
+## Prod formatter options
+
+Configure the prod (JSON) formatter's timestamp format:
+
+```ts
+// Epoch ms (faster, same as pino)
+const log = createFiro({
+  mode: 'prod',
+  prodFormatterConfig: { timestamp: 'epoch' }
+})
+// {"timestamp":1711100000000,"level":"info","message":"hello"}
+
+// ISO 8601 (default, human-readable)
+const log = createFiro({ mode: 'prod' })
+// {"timestamp":"2024-01-15T14:32:01.204Z","level":"info","message":"hello"}
+```
+
+### Custom destination
+
+By default, prod formatter writes to `process.stdout`. You can redirect output to any object with a `.write(string)` method:
+
+```ts
+import { createFiro } from '@fend/firo'
+import { createWriteStream } from 'node:fs'
+
+// Write to a file
+const log = createFiro({
+  mode: 'prod',
+  prodFormatterConfig: { dest: createWriteStream('/var/log/app.log') }
+})
+
+// Use SonicBoom for async buffered writes (same as pino)
+import SonicBoom from 'sonic-boom'
+const log = createFiro({
+  mode: 'prod',
+  prodFormatterConfig: { dest: new SonicBoom({ fd: 1 }) }
+})
+```
+
+## Custom formatter
+
+If for some reason all the options are not enough and you need to take full control of the output, you can provide your own formatter function.
+
+```ts
+import type { FormatterFn } from '@fend/firo'
+
+const myFormatter: FormatterFn = (level, context, msg, data, opts) => {
+  // level:   'debug' | 'info' | 'warn' | 'error'
+  // context: ContextItemWithOptions[]
+  // msg:     string | Error | unknown
+  // data:    Error | unknown
+  // opts:    LogOptions | undefined
+}
+
+const log = createFiro({ formatter: myFormatter })
+```
+
+You don't have to start from scratch — all the helpers we use internally are yours too:
+
+#### FiroUtils
+
+`FiroUtils` exposes helper functions useful for building custom formatters:
+
+```ts
+import { FiroUtils } from '@fend/firo'
+
+FiroUtils.wrapToError(value)      // coerce unknown → Error
+FiroUtils.serializeError(err)     // Error → plain object { message, stack, name, cause?, ... }
+FiroUtils.safeStringify(obj)      // JSON.stringify with bigint support + fallback
+FiroUtils.jsonReplacer            // replacer for JSON.stringify (handles bigint)
+FiroUtils.extractMessage(msg)     // extract message string from string | Error | unknown
+FiroUtils.colorize(text, idx, c?) // wrap text in ANSI color by palette index or raw code
+FiroUtils.colorizeLevel(level, t) // wrap text in level color (red/yellow/dim)
+```
+
+## Best practices
+
+### AsyncLocalStorage (Traceability)
+
+The best way to use **firo** in web frameworks is to store a child logger in `AsyncLocalStorage`. This gives you automatic traceability (e.g. `requestId`) across your entire call stack without passing the logger as an argument.
+
+```ts
+import { AsyncLocalStorage } from 'node:util'
+import { createFiro } from '@fend/firo'
+
+const logger = createFiro()
+const storage = new AsyncLocalStorage()
+
+// Middleware — traceId is essential in prod logs but noisy in dev terminal
+function middleware(req, res, next) {
+  const reqLog = logger.child({
+    traceId: { value: req.headers['x-trace-id'] || crypto.randomUUID(), hideIn: 'dev' },
+    method: req.method
+  })
+  storage.run(reqLog, next)
+}
+
+// Deeply nested function — no logger passing needed
+function someService() {
+  const log = storage.getStore() ?? logger
+  log.info('Service action performed')
+  // dev:  [method:GET] Service action performed
+  // prod: {"traceId":"a1b2c3","method":"GET","message":"Service action performed"}
+}
+```
+
 ## Why not pino?
 
-**Pino** is Italian for *Pine*. It's a great, sturdy tree, especially in production. 
+**Pino** is Italian for *Pine*. It's a great, sturdy tree, especially in production.
 
-But sometimes you need to **Spruce** up your development experience. 
+But sometimes you need to **Spruce** up your development experience.
 
 The problem with pino is development. Its default output is raw JSON — one giant line per log entry, completely unreadable. You reach for `pino-pretty`, and suddenly you're maintaining infrastructure just to see what your app is doing.
 
@@ -463,13 +470,11 @@ Run the benchmark yourself: `pnpm bench`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `mode` | `'dev' \| 'prod'` | `'dev'` | Selects the built-in transport |
-| `minLevel` | `LogLevel` | `'debug'` | Minimum level for both modes |
-| `minLevelInDev` | `LogLevel` | — | Overrides `minLevel` in dev mode |
-| `minLevelInProd` | `LogLevel` | — | Overrides `minLevel` in prod mode |
-| `transport` | `TransportFn` | — | Custom transport, overrides `mode` |
-| `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
-| `prodTransportConfig` | `ProdTransportConfig` | — | Options for the built-in JSON prod transport |
+| `mode` | `'dev' \| 'prod'` | `'dev'` | Selects the built-in formatter |
+| `minLevel` | `LogLevel` | `'debug'` | Minimum log level |
+| `formatter` | `FormatterFn` | — | Custom formatter, overrides `mode` |
+| `devFormatterConfig` | `DevFormatterConfig` | — | Options for the built-in dev formatter |
+| `prodFormatterConfig` | `ProdFormatterConfig` | — | Options for the built-in JSON prod formatter |
 | `useAllColors` | `boolean` | `true` | Use all 30 palette colors for auto-hash (set `false` for 10 safe colors) |
 
 ### Context options

@@ -60,7 +60,7 @@ w(`  This will take a moment. Sit back and relax.\n\n`)
 const totalStart = performance.now()
 benchStart = totalStart
 
-const initFiro = () => createFiro({mode: "prod", prodTransportConfig: {timestamp: "epoch"}})
+const initFiro = () => createFiro({mode: "prod", prodFormatterConfig: {timestamp: "epoch"}})
 const initPino = () => pino({timestamp: () => `,"timestamp":${Date.now()}`})
 
 bench("simple string",

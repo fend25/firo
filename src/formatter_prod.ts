@@ -1,10 +1,10 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {ContextItemWithOptions, LogLevel, TransportFn, extractMessage, jsonReplacer, serializeError} from './utils.ts'
+import {ContextItemWithOptions, LogLevel, FormatterFn, extractMessage, jsonReplacer, serializeError} from './utils.ts'
 
 export type TimestampFormat = 'iso' | 'epoch'
 
-export type ProdTransportConfig = {
+export type ProdFormatterConfig = {
   /** Timestamp format: 'iso' (default) for ISO 8601 string, 'epoch' for ms since Unix epoch. */
   timestamp?: TimestampFormat
   /** Output destination. Any object with a `.write(string)` method. Defaults to `process.stdout`. */
@@ -57,12 +57,12 @@ const buildRecord = (
 }
 
 /**
- * Creates a built-in transport optimized for production.
+ * Creates a built-in formatter optimized for production.
  * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
  *
- * @returns A `TransportFn` that writes JSON to standard output.
+ * @returns A `FormatterFn` that writes JSON to standard output.
  */
-export const createProdTransport = (config: ProdTransportConfig = {}): TransportFn => {
+export const createProdFormatter = (config: ProdFormatterConfig = {}): FormatterFn => {
   const getTimestamp = config.timestamp === 'epoch'
     ? () => Date.now()
     : () => new Date().toISOString()
