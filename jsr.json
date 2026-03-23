@@ -1,9 +1,8 @@
 {
   "name": "@fend/firo",
   "version": "0.0.6",
-  "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
+  "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX and pino-grade speed",
   "license": "MIT",
-  "compatibleRuntimes": ["node", "bun", "deno"],
   "exports": "./src/index.ts",
   "publish": {
     "include": [

@@ -11,7 +11,7 @@
 
 The logger for Node.js, Bun and Deno you've been looking for.
 
-Beautiful **dev** output - out of the box. Structured NDJSON for **prod**.
+Beautiful **dev** output - out of the box. Fast, structured NDJSON for **prod**.
 
 Think of it as pino, but with brilliant DX.
 
@@ -350,7 +350,7 @@ const log = createFiro({
 
 ## Color palette
 
-Most loggers give you monochrome walls of text. firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
+Most loggers give you monochrome walls of text. Firo gives you **30 handpicked colors** that make context badges instantly scannable — you stop reading and start seeing.
 
 ![firo color palette](https://github.com/fend25/firo/blob/main/img/color_madness.png?raw=true)
 
@@ -405,36 +405,35 @@ The problem with pino is development. Its default output is raw JSON — one gia
 - **Visual hierarchy:** Debug lines are dimmed; high-signal logs stay readable.
 - **Zero config:** Beautiful output from the first second.
 
-In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the difference.
+In prod it emits clean NDJSON, same as pino. Your log aggregator won't know the difference. And the speed tax? Smaller than you'd think.
 
 ## Performance
 
-Prod mode (NDJSON) with `timestamp: 'epoch'`, Apple M1, Node.js 25. Average time per 100K log lines (lower is better):
+Firo vs [pino](https://github.com/pinojs/pino) — head-to-head, both writing to stdout, same machine, same conditions.
 
-| Scenario               | ops/sec | ms     |
-| ---------------------- | ------- | ------ |
-| simple string          | 782,488 | 127.8  |
-| string + small obj     | 656,512 | 152.3  |
-| string + bigger obj    | 513,087 | 194.9  |
-| with 3 context items   | 570,441 | 175.3  |
-| child logger (2 ctx)   | 568,977 | 175.8  |
-| error with Error obj   | 470,758 | 212.4  |
+| Scenario                       | pino ops/sec | firo ops/sec | pino ms | firo ms |  diff    |
+| ------------------------------ | -----------: | -----------: | ------: | ------: | -------: |
+| simple string                  |      941,986 |      812,970 |   106.2 |   123.0 |  +15.82% |
+| string + small obj             |      749,782 |      673,332 |   133.4 |   148.5 |  +11.32% |
+| string + bigger obj            |      582,000 |      523,643 |   171.8 |   191.0 |  +11.18% |
+| with 3 context items           |      818,123 |      589,433 |   122.2 |   169.7 |  +38.87% |
+| child logger (2 ctx)           |      807,551 |      592,472 |   123.8 |   168.8 |  +36.35% |
+| deep child (7 ctx) + rich data |      408,246 |      314,244 |   245.0 |   318.2 |  +29.88% |
+| error with Error obj           |      389,665 |      458,247 |   256.6 |   218.2 |  -14.96% |
 
-For comparison, here's [pino's own benchmark](https://github.com/pinojs/pino/blob/main/docs/benchmarks.md) (100K `"hello world"` logs):
+<sub>Apple M1, Node.js 25, 10 runs × 100K logs per scenario.</sub>
 
-| Logger           | ms     |
-| ---------------- | ------ |
-| pino             | 114.8  |
-| **firo**         | **127.8** |
-| bole             | 172.7  |
-| pino (NodeStream)| 159.2  |
-| debug            | 220.5  |
-| winston          | 270.2  |
-| bunyan           | 377.4  |
+Pino is backed by 10 years of relentless optimization: [SonicBoom](https://github.com/pinojs/sonic-boom) async writer, [fast-json-stringify](https://github.com/fastify/fast-json-stringify) with schema-compiled serialization, pre-serialized child context stored as raw JSON fragments, C++ worker threads. It is an obsessively optimized piece of engineering and fully deserves its reputation as the fastest logger in Node.js.
 
-Pino is faster thanks to [SonicBoom](https://github.com/pinojs/sonic-boom) — an optimized async writer with buffering and [fast-json-stringify](https://github.com/fastify/fast-json-stringify) for schema-compiled serialization. firo uses plain `JSON.stringify` + `process.stdout.write` and lands within 8% of pino — a difference of ~130 nanoseconds per log line.
+Firo uses the most vanilla tools imaginable — `JSON.stringify` and `process.stdout.write`, shipping since 2009. Zero dependencies. Zero tricks. ~30% behind pino on a realistic deep-child scenario with nested payloads. 15% ahead on error serialization.
 
-Run it yourself: `pnpm bench`
+For context, here's where the other loggers stand according to [pino's own benchmarks](https://github.com/pinojs/pino/blob/main/docs/benchmarks.md) (basic "hello world", same machine): winston 174ms, bunyan 228ms, bole 107ms. firo's 123ms puts it comfortably ahead of winston and bunyan, neck and neck with bole — and all of that with a DX that none of them can match.
+
+So yes — if you're looking for a pino alternative with gorgeous DX, structured context, and beautiful dev output, firo is right there performance-wise. Almost a drop-in replacement.*
+
+<sub>* Okay, not exactly drop-in — we put the message first and the data second, like normal humans. `log.info("hello", data)` instead of `log.info(data, "hello")`. We'll let you decide which API sparks more joy.</sub>
+
+Run the benchmark yourself: `pnpm bench`
 
 ## API reference
 

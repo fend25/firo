@@ -1,7 +1,7 @@
 {
   "name": "@fend/firo",
   "version": "0.0.6",
-  "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX.",
+  "description": "Elegant logger for Node.js, Bun and Deno with brilliant DX and pino-grade speed",
   "keywords": [
     "firo",
     "logger",
@@ -53,6 +53,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "bumpp": "^11.0.1",
+    "pino": "^10.3.1",
     "tsup": "^8.5.1",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3"
