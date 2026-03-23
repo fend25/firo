@@ -28,6 +28,7 @@ const buildRecord = (
 
   // Flatten context directly — no intermediate object or spread
   for (let i = 0, len = context.length; i < len; i++) {
+    if (context[i].hideIn === 'prod') continue
     logRecord[context[i].key] = context[i].value
   }
 

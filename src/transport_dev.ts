@@ -38,7 +38,7 @@ export const createDevTransport = (config: DevTransportConfig = {}): TransportFn
     const timestamp = now.toLocaleTimeString(locale, timeOpts)
 
     // 1. Render context badges
-    const contextStr = context.map(ctx => {
+    const contextStr = context.filter(ctx => ctx.hideIn !== 'dev').map(ctx => {
       const key = ctx.omitKey ? '' : `${ctx.key}:`
       const content = `${key}${ctx.value}`
       return colorize(`[${content}]`, ctx.colorIndex, ctx.color)

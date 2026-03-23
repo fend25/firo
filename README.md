@@ -177,6 +177,13 @@ log.addContext({ key: 'region', value: 'west', colorIndex: 3 })
 // Use any ANSI color — 256-color, truecolor, anything
 log.addContext({ key: 'trace', value: 'abc', color: '38;5;214' })       // 256-color orange
 log.addContext({ key: 'span', value: 'xyz', color: '38;2;255;100;0' })  // truecolor
+
+// Hide in dev — useful for traceIds that clutter the terminal
+log.addContext('traceId', { value: 'abc-123-xyz', hideIn: 'dev' })
+// still appears in prod JSON, hidden from dev output
+
+// Hide in prod — dev-only debugging context
+log.addContext('debugTag', { value: 'perf-test', hideIn: 'prod' })
 ```
 
 ### Remove context
@@ -464,6 +471,15 @@ Run the benchmark yourself: `pnpm bench`
 | `devTransportConfig` | `DevTransportConfig` | — | Options for the built-in dev transport |
 | `prodTransportConfig` | `ProdTransportConfig` | — | Options for the built-in JSON prod transport |
 | `useAllColors` | `boolean` | `true` | Use all 30 palette colors for auto-hash (set `false` for 10 safe colors) |
+
+### Context options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `colorIndex` | `number` | auto | Color palette index (0–29) |
+| `color` | `string` | — | Raw ANSI color code (e.g. `'38;5;214'`). Takes priority over `colorIndex` |
+| `omitKey` | `boolean` | `false` | Hide the key, show only the value as `[value]` |
+| `hideIn` | `'dev' \| 'prod'` | — | Hide this context item in dev or prod mode |
 
 ## License
 

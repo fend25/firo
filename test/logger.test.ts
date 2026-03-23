@@ -363,6 +363,33 @@ test('dev transport — omitKey renders [value] only', () => {
   assert.ok(!stdout.includes('[userId:bob]'))
 })
 
+test('dev transport — hideIn dev hides context badge', () => {
+  const log = createFiro({mode: 'dev'})
+  log.addContext('svc', 'api')
+  log.addContext('traceId', {value: 'abc-123', hideIn: 'dev'})
+  const {stdout} = captureOutput(() => log.info('test'))
+
+  assert.ok(stdout.includes('[svc:api]'))
+  assert.ok(!stdout.includes('traceId'))
+  assert.ok(!stdout.includes('abc-123'))
+})
+
+test('dev transport — hideIn prod still shows in dev', () => {
+  const log = createFiro({mode: 'dev'})
+  log.addContext('debugInfo', {value: 'xyz', hideIn: 'prod'})
+  const {stdout} = captureOutput(() => log.info('test'))
+
+  assert.ok(stdout.includes('[debugInfo:xyz]'))
+})
+
+test('dev transport — hideIn dev works with child context', () => {
+  const log = createFiro({mode: 'dev'})
+  const child = log.child({traceId: {value: 'trace-99', hideIn: 'dev'}})
+  const {stdout} = captureOutput(() => child.info('test'))
+
+  assert.ok(!stdout.includes('trace-99'))
+})
+
 test('dev transport — error has [ERROR] prefix', () => {
   const log = createFiro({mode: 'dev'})
   const {stderr} = captureOutput(() => log.error('oops'))
@@ -469,6 +496,35 @@ test('prod transport — context flattened into record', () => {
   const parsed = JSON.parse(stdout.trim())
   assert.strictEqual(parsed.service, 'api')
   assert.strictEqual(parsed.env, 'prod')
+})
+
+test('prod transport — hideIn prod hides context from JSON', () => {
+  const log = createFiro({mode: 'prod'})
+  log.addContext('service', 'api')
+  log.addContext('debugInfo', {value: 'xyz', hideIn: 'prod'})
+  const {stdout} = captureOutput(() => log.info('test'))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.service, 'api')
+  assert.strictEqual(parsed.debugInfo, undefined)
+})
+
+test('prod transport — hideIn dev still shows in prod', () => {
+  const log = createFiro({mode: 'prod'})
+  log.addContext('traceId', {value: 'abc-123', hideIn: 'dev'})
+  const {stdout} = captureOutput(() => log.info('test'))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.traceId, 'abc-123')
+})
+
+test('prod transport — hideIn prod works with child context', () => {
+  const log = createFiro({mode: 'prod'})
+  const child = log.child({debugTag: {value: 'dbg', hideIn: 'prod'}})
+  const {stdout} = captureOutput(() => child.info('test'))
+
+  const parsed = JSON.parse(stdout.trim())
+  assert.strictEqual(parsed.debugTag, undefined)
 })
 
 test('prod transport — data field for non-error', () => {

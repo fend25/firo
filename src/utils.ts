@@ -24,6 +24,8 @@ export type ContextOptions = {
   color?: string
   /** If true, the key name is hidden, and only the value is printed. */
   omitKey?: boolean
+  /** Hide this context item in 'dev' or 'prod' mode. Useful for keeping traceIds out of dev output. */
+  hideIn?: 'dev' | 'prod'
 }
 
 /** A single key-value context entry. */
@@ -42,6 +44,7 @@ export type ContextItemWithOptions = ContextItem & {
   colorIndex: number
   omitKey: boolean
   color?: string
+  hideIn?: 'dev' | 'prod'
 }
 
 /** Options that can be passed to a single log call. */
