@@ -393,6 +393,16 @@ test('dev transport — data is serialized', () => {
   assert.ok(stdout.includes('200'))
 })
 
+test('dev transport — info with Error as data', () => {
+  const log = createFiro({mode: 'dev'})
+  const err = new Error('whoops')
+  const {stdout} = captureOutput(() => log.info('something failed', err))
+
+  assert.ok(stdout.includes('something failed'), 'Should output message')
+  assert.ok(stdout.includes('Error: whoops'), 'Should output error')
+  assert.ok(stdout.includes('at '), 'Should output stack trace')
+})
+
 test('dev transport — ends with newline', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -429,21 +439,13 @@ test('dev transport — applies devTransportConfig time options', () => {
 
 test('dev transport — stringifies object message instead of [object Object]', () => {
   const log = createFiro({mode: 'dev'})
-  //@ts-expect-error
+  //@ts-expect-error — info() expects string, but we test runtime handling of objects
   const {stdout} = captureOutput(() => log.info({status: 'ok', count: 42}))
 
   assert.ok(!stdout.includes('[object Object]'), 'Should not output [object Object]')
   assert.ok(stdout.includes('status:'), 'Should output object properties')
   assert.ok(stdout.includes("'ok'"), 'Should output object values')
   assert.ok(stdout.includes('42'), 'Should output numeric values')
-})
-
-test('dev transport — info with Error object', () => {
-  const log = createFiro({mode: 'dev'})
-  const {stdout} = captureOutput(() => log.info(new Error('whoops')))
-
-  assert.ok(stdout.includes('Error: whoops'), 'Should output error name and message')
-  assert.ok(stdout.includes('at '), 'Should output stack trace')
 })
 
 // --- Prod transport ---
@@ -541,17 +543,16 @@ test('prod transport — error preserves data object', () => {
   assert.strictEqual(parsed.data.reason, 'timeout')
 })
 
-test('prod transport — info with Error object', () => {
+test('prod transport — info with Error as data', () => {
   const log = createFiro({mode: 'prod'})
-  const err = new Error('fail')
-  const {stdout} = captureOutput(() => log.info(err))
+  const err = new Error('db timeout')
+  const {stdout} = captureOutput(() => log.info('query slow', err))
 
   const parsed = JSON.parse(stdout.trim())
   assert.strictEqual(parsed.level, 'info')
-  assert.strictEqual(parsed.message, 'fail')
-  assert.strictEqual(parsed.error.message, 'fail')
-  assert.ok(parsed.error.stack)
-  assert.strictEqual(parsed.error.name, 'Error')
+  assert.strictEqual(parsed.message, 'query slow')
+  assert.strictEqual(parsed.data.message, 'db timeout')
+  assert.ok(parsed.data.stack)
 })
 
 test('prod transport — error with cause chain', () => {
