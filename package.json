@@ -44,7 +44,7 @@
     "typecheck": "tsc --noEmit",
     "demo": "tsx demo.ts",
     "bench": "tsx benchmark/prod.ts > /dev/null",
-    "bump": "bumpp --files package.json --files jsr.json --commit \"v%s\" --no-push"
+    "bump": "bumpp --files package.json --files jsr.json --execute \"pnpm check && pnpm build && npm publish --dry-run --access public && deno publish --dry-run\" --commit \"v%s\" --no-push"
   },
   "packageManager": "pnpm@10.32.1",
   "engines": {
