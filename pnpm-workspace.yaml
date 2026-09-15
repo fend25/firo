@@ -1,0 +1,20 @@
+# - delay newly published packages by 3 days;
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude: []
+
+verifyDepsBeforeRun: error
+minimumReleaseAgeIgnoreMissingTime: false
+
+# - keep newly added dependency versions exact; "" means no ^ or ~ at the beginning
+savePrefix: ""
+
+# - fail on trust-signal downgrades;
+trustPolicy: no-downgrade
+# trustPolicyIgnoreAfter: 43200
+trustPolicyExclude:
+  - 'chokidar@4.0.3'
+
+strictDepBuilds: true
+
+allowBuilds:
+  esbuild: false

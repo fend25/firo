@@ -37,8 +37,8 @@ jobs:
       - name: Dry run — npm
         run: pnpm publish --dry-run --no-git-checks
       - name: Dry run — JSR
-        run: npx jsr publish --dry-run
+        run: pnpm exec jsr publish --dry-run
       - name: Publish to npm
         run: pnpm publish --provenance --access public --no-git-checks
       - name: Publish to JSR
-        run: npx jsr publish
+        run: pnpm exec jsr publish
