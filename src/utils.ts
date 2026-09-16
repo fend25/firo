@@ -149,20 +149,27 @@ export const wrapToError = (obj: unknown): Error => {
   )
 }
 
-/** Serialize an error-like value to a plain object with `message`, `stack`, `name`, and recursively serialized `cause`. */
-export const serializeError = (_err: unknown): Record<string, unknown> => {
-  const err = wrapToError(_err)
+const serializeErrorChain = (err: Error, seen?: Set<Error>): Record<string, unknown> => {
   const result: Record<string, unknown> = {
     message: err.message,
     stack: err.stack,
     name: err.name,
     ...(err as any),
   }
-  if (err.cause !== undefined) {
-    result.cause = err.cause instanceof Error ? serializeError(err.cause) : err.cause
+  const cause = err.cause
+  if (cause instanceof Error) {
+    const visited = seen ?? new Set<Error>()
+    visited.add(err)
+    result.cause = visited.has(cause) ? '[Circular]' : serializeErrorChain(cause, visited)
+  } else if (cause !== undefined) {
+    result.cause = cause
   }
   return result
 }
+
+/** Serialize an error-like value with `message`, `stack`, `name`, and recursively serialized `cause`. Cyclic error causes become `[Circular]`. */
+export const serializeError = (_err: unknown): Record<string, unknown> =>
+  serializeErrorChain(wrapToError(_err))
 
 /** Extract a human-readable message string from any log input. Useful for building custom formatters. */
 export const extractMessage = (msg: string | Error | unknown): string =>

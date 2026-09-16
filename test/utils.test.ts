@@ -1,6 +1,52 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { getColorIndex, colorize, colorizeLevel, LOG_LEVELS, FIRO_COLORS } from '../src/utils.ts'
+import { getColorIndex, colorize, colorizeLevel, LOG_LEVELS, FIRO_COLORS, serializeError } from '../src/utils.ts'
+
+test('serializeError — replaces a self-referencing cause with a circular marker', () => {
+  const err = new Error('self-referencing')
+  err.cause = err
+
+  const serialized = serializeError(err)
+
+  assert.strictEqual(serialized.message, err.message)
+  assert.strictEqual(serialized.name, err.name)
+  assert.strictEqual(serialized.stack, err.stack)
+  assert.strictEqual(serialized.cause, '[Circular]')
+  assert.doesNotThrow(() => JSON.stringify(serialized))
+  assert.strictEqual(err.cause, err)
+})
+
+test('serializeError — preserves an indirect cause chain up to the cycle', () => {
+  const root = Object.assign(new Error('root'), {code: 'ROOT'})
+  const wrapped = new Error('wrapped', {cause: root})
+  root.cause = wrapped
+
+  const serialized = serializeError(wrapped)
+  const cause = serialized.cause as Record<string, unknown>
+
+  assert.strictEqual(serialized.message, 'wrapped')
+  assert.strictEqual(cause.message, 'root')
+  assert.strictEqual(cause.stack, root.stack)
+  assert.strictEqual(cause.code, 'ROOT')
+  assert.strictEqual(cause.cause, '[Circular]')
+  assert.doesNotThrow(() => JSON.stringify(serialized))
+  assert.strictEqual(root.cause, wrapped)
+  assert.strictEqual(wrapped.cause, root)
+})
+
+test('serializeError — repeated calls preserve an acyclic cause chain', () => {
+  const reason = {code: 'ECONNREFUSED'}
+  const root = new Error('connection refused', {cause: reason})
+  const wrapped = new Error('query failed', {cause: root})
+
+  const result = serializeError(wrapped)
+  const oneMoreResult = serializeError(wrapped)
+  const cause = oneMoreResult.cause as Record<string, unknown>
+
+  assert.deepStrictEqual(oneMoreResult, result)
+  assert.strictEqual(cause.message, 'connection refused')
+  assert.strictEqual(cause.cause, reason)
+})
 
 test('LOG_LEVELS ordering', () => {
   assert.ok(LOG_LEVELS.debug < LOG_LEVELS.info)

@@ -379,7 +379,7 @@ FiroUtils.colorizeLevel(level, t) // wrap text in level color (red/yellow/dim)
 The best way to use **firo** in web frameworks is to store a child logger in `AsyncLocalStorage`. This gives you automatic traceability (e.g. `requestId`) across your entire call stack without passing the logger as an argument.
 
 ```ts
-import { AsyncLocalStorage } from 'node:util'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { createFiro } from '@fend/firo'
 
 const logger = createFiro()

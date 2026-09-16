@@ -599,6 +599,29 @@ test('prod formatter — error with cause chain', () => {
   assert.ok(parsed.error.cause.stack)
 })
 
+test('prod formatter — cyclic error causes produce valid NDJSON in message and data arguments', () => {
+  const log = createFiro({mode: 'prod'})
+  const err = new Error('cyclic failure')
+  err.cause = err
+
+  const {stdout} = captureOutput(() => {
+    log.error(err, {reqId: 123})
+    log.error('request failed', err)
+    log.info('retrying', err)
+  })
+
+  const records = stdout.trim().split('\n').map(line => JSON.parse(line))
+  assert.strictEqual(records.length, 3)
+  assert.deepStrictEqual(records.map(record => record.level), ['error', 'error', 'info'])
+  assert.deepStrictEqual(records.map(record => record.message), ['cyclic failure', 'request failed', 'retrying'])
+  assert.strictEqual(records[0].data.reqId, 123)
+  for (const error of [records[0].error, records[1].error, records[2].data]) {
+    assert.strictEqual(error.message, err.message)
+    assert.strictEqual(error.stack, err.stack)
+    assert.strictEqual(error.cause, '[Circular]')
+  }
+})
+
 test('prod formatter — error with Error + extra data', () => {
   const log = createFiro({mode: 'prod'})
   const err = new Error('boom')
