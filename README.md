@@ -32,7 +32,7 @@ Structured NDJSON in production mode:
 - **Context system** — attach key/value pairs that beautifully appear in every subsequent log line
 - **Child loggers** — inherit parent context, fully isolated from each other
 - **Per-call context** — attach extra fields to a single log call without mutating state
-- **Severity Level filtering** — globally or per-mode thresholds to reduce noise
+- **Log level filtering** — a minimum severity per logger, inherited by its children
 - **30 named colors** — `FIRO_COLORS` palette with great handpicked colors, plus raw ANSI/256-color/truecolor support
 - **Zero dependencies** — small and fast, no bloat, no native addons. Works on Node.js, Bun and Deno.
 
@@ -108,6 +108,8 @@ Debug lines are dimmed in dev mode to reduce visual noise.
 
 ### Filtering
 
+`minLevel` sets the minimum severity for a logger in either dev or prod mode. Child loggers inherit this threshold. For example, `'warn'` emits warnings and errors while suppressing debug and info messages:
+
 ```ts
 const log = createFiro({ minLevel: 'warn' })
 ```
@@ -138,6 +140,10 @@ log.error(someUnknownThing)
 
 Attach persistent key/value pairs to a logger instance. They appear in every log line.
 
+Each context key has one active entry. Adding the same key again replaces its value and display options while keeping its original position. New keys are appended. Removing a key removes its active entry.
+
+Firo reserves `timestamp`, `level`, `message`, `data`, and `error` as context keys. By default, these entries are silently omitted when context is supplied. Enable [`throwOnReservedContextKeys`](#reserved-context-keys) to reject them with an error instead. This rule is the same in dev, prod, and with custom formatters.
+
 ```ts
 const log = createFiro()
 
@@ -148,6 +154,18 @@ log.info('Started')
 // dev:  [14:32:01.204] [service:auth] [env:production] Started
 // prod: {"level":"info","service":"auth","env":"production","message":"Started",...}
 ```
+
+### Reserved context keys
+
+`throwOnReservedContextKeys` defaults to `false`. Reserved entries are omitted before they enter the logger's context or reach a formatter. To detect naming conflicts immediately, enable the flag in the logger configuration:
+
+```ts
+const log = createFiro({ throwOnReservedContextKeys: true })
+
+log.addContext('level', 'gold') // Throws here; the context is not changed.
+```
+
+The rule applies to initial context, both forms of `addContext()`, `child()`, and `opts.ctx`, regardless of `hideIn`. Child loggers inherit the flag. For `opts.ctx`, the check runs before formatting a log call that passes `minLevel` filtering. Input arrays are not modified.
 
 ### Context options
 
@@ -198,6 +216,8 @@ log.removeFromContext('env')
 
 Create a scoped logger that inherits the parent's context at the moment of creation. Parent and child are fully isolated — mutations on one do not affect the other.
 
+Keys provided to `child()` override matching parent keys in the child only.
+
 ```ts
 const log = createFiro()
 log.addContext('service', 'api')
@@ -221,7 +241,9 @@ txLog.info('Transaction committed')
 
 ## Per-call context
 
-Add context to a single log call without touching the logger's state:
+Add context to a single log call without touching the logger's state.
+
+`opts.ctx` overrides matching logger keys. If a key occurs more than once in `opts.ctx`, the last entry wins. Only the final entry's display options (including `hideIn`) apply; an older value does not reappear when the replacement is hidden.
 
 ```ts
 log.info('User action', payload, {
@@ -253,6 +275,16 @@ const log = createFiro({
       fractionalSecondDigits: undefined
     }
   }
+})
+```
+
+### Disable colors
+
+Colors are enabled by default. Set `colors: false` to disable ANSI colors and dimming added by Firo, including colors in context badges and inspected objects. Timestamps, level labels, and `pretty` formatting are preserved:
+
+```ts
+const log = createFiro({
+  devFormatterConfig: { colors: false }
 })
 ```
 
@@ -471,11 +503,12 @@ Run the benchmark yourself: `pnpm bench`
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `mode` | `'dev' \| 'prod'` | `'dev'` | Selects the built-in formatter |
-| `minLevel` | `LogLevel` | `'debug'` | Minimum log level |
+| `minLevel` | `LogLevel` | `'debug'` | Minimum log level for this logger, inherited by its children |
 | `formatter` | `FormatterFn` | — | Custom formatter, overrides `mode` |
 | `devFormatterConfig` | `DevFormatterConfig` | — | Options for the built-in dev formatter |
 | `prodFormatterConfig` | `ProdFormatterConfig` | — | Options for the built-in JSON prod formatter |
 | `useSafeColors` | `boolean` | `false` | Restrict auto-hash to 10 terminal-safe colors (set `true` for basic terminals) |
+| `throwOnReservedContextKeys` | `boolean` | `false` | Throw on reserved context keys instead of omitting them; inherited by child loggers |
 
 ### Context options
 

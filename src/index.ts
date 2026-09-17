@@ -27,6 +27,8 @@ export type LoggerConfig = {
   prodFormatterConfig?: ProdFormatterConfig
   /** Restrict auto-assigned context badge colors to 10 terminal-safe colors. Defaults to false (all 30 palette colors are used). */
   useSafeColors?: boolean
+  /** Throw when reserved context keys are supplied instead of silently omitting them. Defaults to false. */
+  throwOnReservedContextKeys?: boolean
 }
 
 /**
@@ -60,10 +62,10 @@ export interface Firo {
    */
   child: (ctx: Record<string, ContextValue | ContextExtension>) => Firo
 
-  /** Add a context entry by key and value. */
+  /** Add or replace a context entry by key and value, preserving its position. */
   addContext(key: string, value: ContextValue | ContextExtension): void
 
-  /** Add a context entry using the object form. */
+  /** Add or replace a context entry using the object form, preserving its position. */
   addContext(item: ContextItem): void
 
   /** Remove a context entry by its key. */
@@ -85,6 +87,8 @@ export {createProdFormatter} from './formatter_prod.ts'
 
 export * as FiroUtils from './utils.ts'
 
+const RESERVED_CONTEXT_KEYS = new Set(['timestamp', 'level', 'message', 'data', 'error'])
+
 /**
  * Creates a new logger instance with the specified configuration.
  *
@@ -93,26 +97,48 @@ export * as FiroUtils from './utils.ts'
  */
 export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem[] = []): Firo => {
   const useSafeColors = config.useSafeColors ?? false
-  const fill = (item: ContextItem): ContextItemWithOptions => ({
-    ...item,
-    colorIndex: (typeof item.colorIndex === 'number')
-      ? item.colorIndex
-      : getColorIndex(item.key, useSafeColors),
-    color: item.color,
-    omitKey: item.omitKey ?? false,
-  })
+  const throwOnReservedContextKeys = config.throwOnReservedContextKeys ?? false
+  const fill = (item: ContextItem): ContextItemWithOptions | undefined => {
+    if (RESERVED_CONTEXT_KEYS.has(item.key)) {
+      if (throwOnReservedContextKeys) {
+        throw new Error(`Context key "${item.key}" is reserved. Rename it or set throwOnReservedContextKeys: false.`)
+      }
+      return undefined
+    }
+    return {
+      ...item,
+      colorIndex: (typeof item.colorIndex === 'number')
+        ? item.colorIndex
+        : getColorIndex(item.key, useSafeColors),
+      color: item.color,
+      omitKey: item.omitKey ?? false,
+    }
+  }
+
+  const mergeContext = (
+    context: ContextItemWithOptions[],
+    additionalContext: ContextItem[]
+  ): ContextItemWithOptions[] => {
+    const merged = new Map<string, ContextItemWithOptions>()
+    for (const item of context) merged.set(item.key, item)
+    for (const item of additionalContext) {
+      const filled = fill(item)
+      if (filled) merged.set(filled.key, filled)
+    }
+    return [...merged.values()]
+  }
 
   const appendContextWithInvokeContext = (
     context: ContextItemWithOptions[],
     invokeContext?: ContextItem[]
   ): ContextItemWithOptions[] => {
     if (!invokeContext || invokeContext.length === 0) return context
-    return [...context, ...invokeContext.map(fill)]
+    return mergeContext(context, invokeContext)
   }
 
   // Mutable context array for this instance.
   // We copy the parent context so mutations here do not affect the parent.
-  const context: ContextItemWithOptions[] = [...parentContext.map(fill)]
+  const context: ContextItemWithOptions[] = mergeContext([], parentContext)
 
   // Resolve formatter once at creation time
   const formatter: FormatterFn = config.formatter
@@ -136,7 +162,11 @@ export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem
     } else {
       item = key
     }
-    context.push(fill(item))
+    const filled = fill(item)
+    if (!filled) return
+    const index = context.findIndex(ctx => ctx.key === filled.key)
+    if (index === -1) context.push(filled)
+    else context[index] = filled
   }
   const removeKeyFromContext = (key: string) => {
     const index = context.findIndex(ctx => ctx.key === key)
@@ -154,7 +184,7 @@ export const createFiro = (config: LoggerConfig = {}, parentContext: ContextItem
 
     // Pass current context snapshot + new items.
     // Reuse the same formatter instance to avoid recreating it.
-    return createFiro({formatter, minLevel: minLevelName, useSafeColors}, [...context, ...newItems])
+    return createFiro({formatter, minLevel: minLevelName, useSafeColors, throwOnReservedContextKeys}, [...context, ...newItems])
   }
 
   const debug = (msg: string, data?: unknown, opts?: LogOptions) => {

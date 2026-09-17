@@ -171,7 +171,150 @@ test('getContext returns current context', () => {
   assert.strictEqual(ctx[1].key, 'b')
 })
 
+test('addContext replaces the value and options without moving the key', () => {
+  const log = createFiro({formatter: () => {}})
+  log.addContext('reqId', {value: 1, color: '31', hideIn: 'prod'})
+  log.addContext('service', 'api')
+  log.addContext('reqId', {value: 2, omitKey: true})
+
+  assert.deepStrictEqual(log.getContext().map(({key, value}) => ({key, value})), [
+    {key: 'reqId', value: 2},
+    {key: 'service', value: 'api'},
+  ])
+  assert.strictEqual(log.getContext()[0].omitKey, true)
+  assert.strictEqual(log.getContext()[0].color, undefined)
+  assert.strictEqual(log.getContext()[0].hideIn, undefined)
+
+  log.addContext({key: 'reqId', value: 0})
+  assert.strictEqual(log.getContext().length, 2)
+  assert.strictEqual(log.getContext()[0].value, 0)
+  assert.strictEqual(log.getContext()[0].omitKey, false)
+})
+
+test('initial context keeps the latest entry for each key', () => {
+  const context = [
+    {key: 'service', value: 'api'},
+    {key: 'env', value: 'test'},
+    {key: 'service', value: 'worker'},
+  ]
+  const log = createFiro({formatter: () => {}}, context)
+
+  assert.deepStrictEqual(log.getContext().map(({key, value}) => ({key, value})), [
+    {key: 'service', value: 'worker'},
+    {key: 'env', value: 'test'},
+  ])
+  assert.strictEqual(context.length, 3)
+  assert.strictEqual(context[0].value, 'api')
+})
+
+// --- Reserved context keys ---
+
+for (const mode of ['dev', 'prod', 'custom'] as const) {
+  test(`${mode} — reserved context keys are omitted on input by default`, () => {
+    const {fn, calls} = createSpyFormatter()
+    const config = mode === 'custom' ? {formatter: fn} : {mode}
+    const reserved = ['timestamp', 'level', 'message', 'data', 'error'].map(key => ({key, value: 'ignored'}))
+    const initial = [...reserved, {key: 'service', value: 'api'}]
+    const log = createFiro(config, initial)
+    for (const item of reserved) log.addContext(item)
+    log.addContext('level', 'gold')
+    const child = log.child({level: 'gold', data: 'ignored', reqId: 123}).child({message: 'ignored'})
+
+    assert.deepStrictEqual(log.getContext().map(ctx => ctx.key), ['service'])
+    assert.deepStrictEqual(child.getContext().map(ctx => ctx.key), ['service', 'reqId'])
+    assert.strictEqual(child.hasInContext('level'), false)
+
+    const ctx = [...reserved, {key: 'service', value: 'worker'}]
+    const {stdout} = captureOutput(() => child.info('hello', undefined, {ctx}))
+
+    if (mode === 'custom') {
+      assert.deepStrictEqual(calls[0].context.map(({key, value}) => ({key, value})), [
+        {key: 'service', value: 'worker'},
+        {key: 'reqId', value: 123},
+      ])
+    } else if (mode === 'dev') {
+      assert.ok(stdout.includes('[service:worker]'))
+      assert.ok(stdout.includes('[reqId:123]'))
+      for (const {key} of reserved) assert.ok(!stdout.includes(`[${key}:`))
+    } else {
+      const record = JSON.parse(stdout)
+      assert.strictEqual(record.level, 'info')
+      assert.strictEqual(record.message, 'hello')
+      assert.strictEqual(record.service, 'worker')
+      assert.strictEqual(record.reqId, 123)
+      assert.ok(!('data' in record))
+      assert.ok(!('error' in record))
+    }
+    assert.strictEqual(child.getContext()[0].value, 'api')
+    assert.strictEqual(initial.length, 6)
+    assert.strictEqual(ctx.length, 6)
+  })
+
+  test(`${mode} — throwOnReservedContextKeys rejects input immediately and is inherited`, () => {
+    const {fn, calls} = createSpyFormatter()
+    const config = {throwOnReservedContextKeys: true, ...(mode === 'custom' ? {formatter: fn} : {mode})}
+    const log = createFiro(config)
+    log.addContext('service', 'api')
+    const child = log.child({reqId: 123}).child({})
+
+    for (const key of ['timestamp', 'level', 'message', 'data', 'error']) {
+      const expectedError = {
+        name: 'Error',
+        message: `Context key "${key}" is reserved. Rename it or set throwOnReservedContextKeys: false.`,
+      }
+      assert.throws(() => createFiro(config, [{key, value: 'ignored'}]), expectedError)
+      assert.throws(() => log.addContext(key, 'ignored'), expectedError)
+      assert.throws(() => log.addContext({key, value: 'ignored', hideIn: 'prod'}), expectedError)
+      assert.throws(() => log.child({[key]: 'ignored'}), expectedError)
+      assert.throws(() => child.addContext(key, 'ignored'), expectedError)
+    }
+
+    const {stdout, stderr} = captureOutput(() => {
+      for (const method of [child, child.debug, child.info, child.warn, child.error]) {
+        assert.throws(() => method('hello', undefined, {
+          ctx: [{key: 'service', value: 'temporary'}, {key: 'level', value: 'gold'}],
+        }), /Context key "level" is reserved/)
+      }
+    })
+    assert.strictEqual(stdout, '')
+    assert.strictEqual(stderr, '')
+    assert.strictEqual(calls.length, 0)
+    assert.deepStrictEqual(child.getContext().map(({key, value}) => ({key, value})), [
+      {key: 'service', value: 'api'},
+      {key: 'reqId', value: 123},
+    ])
+  })
+}
+
 // --- Per-call context ---
+
+test('opts.ctx overrides persistent and repeated inline keys for one call', () => {
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
+  log.addContext('service', 'api')
+  log.addContext('env', 'test')
+  const ctx = [
+    {key: 'service', value: 'worker'},
+    {key: 'reqId', value: 'old'},
+    {key: 'service', value: 'job'},
+    {key: 'reqId', value: 'new'},
+  ]
+
+  log.info('with overrides', undefined, {ctx})
+  log.info('without overrides')
+
+  assert.deepStrictEqual(calls[0].context.map(({key, value}) => ({key, value})), [
+    {key: 'service', value: 'job'},
+    {key: 'env', value: 'test'},
+    {key: 'reqId', value: 'new'},
+  ])
+  assert.deepStrictEqual(calls[1].context.map(({key, value}) => ({key, value})), [
+    {key: 'service', value: 'api'},
+    {key: 'env', value: 'test'},
+  ])
+  assert.strictEqual(ctx.length, 4)
+  assert.strictEqual(ctx[0].value, 'worker')
+})
 
 test('opts.ctx adds inline context for single call', () => {
   const {fn, calls} = createSpyFormatter()
@@ -197,6 +340,59 @@ test('opts.ctx works on error', () => {
 })
 
 // --- Child loggers ---
+
+test('child overrides and removes a key without changing its ancestors', () => {
+  const log = createFiro({formatter: () => {}})
+  log.addContext('service', 'api')
+  log.addContext('env', 'test')
+  const child = log.child({service: 'worker'})
+  const nested = child.child({service: 'job'})
+
+  assert.deepStrictEqual(nested.getContext().map(({key, value}) => ({key, value})), [
+    {key: 'service', value: 'job'},
+    {key: 'env', value: 'test'},
+  ])
+  nested.removeFromContext('service')
+  assert.strictEqual(nested.hasInContext('service'), false)
+  assert.deepStrictEqual(nested.getContext().map(ctx => ctx.key), ['env'])
+  assert.strictEqual(child.getContext()[0].value, 'worker')
+  assert.strictEqual(log.getContext()[0].value, 'api')
+})
+
+for (const mode of ['dev', 'prod'] as const) {
+  test(`${mode} output uses the latest context entry and its visibility`, () => {
+    const log = createFiro({mode})
+    log.addContext('service', 'api')
+    log.addContext('service', 'worker')
+    const child = log.child({service: 'job'})
+    const {stdout} = captureOutput(() => child.info('test'))
+
+    if (mode === 'dev') {
+      assert.strictEqual(stdout.match(/\[service:/g)?.length, 1)
+      assert.ok(stdout.includes('[service:job]'))
+    } else {
+      assert.strictEqual(JSON.parse(stdout).service, 'job')
+    }
+
+    const hidden = child.child({service: {value: 'hidden', hideIn: mode}})
+    const hiddenOutput = captureOutput(() => hidden.info('test')).stdout
+    const overrideOutput = captureOutput(() => hidden.info('test', undefined, {
+      ctx: [{key: 'service', value: 'visible', omitKey: true}],
+    })).stdout
+
+    if (mode === 'dev') {
+      assert.ok(!hiddenOutput.includes('[service:'))
+      assert.ok(!hiddenOutput.includes('hidden'))
+      assert.ok(overrideOutput.includes('[visible]'))
+      assert.ok(!overrideOutput.includes('[service:'))
+    } else {
+      assert.strictEqual(JSON.parse(hiddenOutput).service, undefined)
+      assert.strictEqual(JSON.parse(overrideOutput).service, 'visible')
+    }
+    assert.strictEqual(hidden.getContext()[0].value, 'hidden')
+    assert.strictEqual(hidden.getContext()[0].hideIn, mode)
+  })
+}
 
 test('child inherits parent context', () => {
   const {fn, calls} = createSpyFormatter()
@@ -388,6 +584,33 @@ test('dev formatter — debug lines are dimmed', () => {
   assert.ok(stdout.includes('\x1b[2mdim me\x1b[0m'), 'debug message should be dimmed')
 })
 
+for (const pretty of [false, true]) {
+  test(`dev formatter — colors: false keeps readable output without ANSI (pretty: ${pretty})`, () => {
+    const log = createFiro({devFormatterConfig: {colors: false}})
+    log.addContext('service', {value: 'api', color: '31'})
+    const child = log.child({reqId: 123})
+    const data = {status: 'ready', nested: {active: true, count: 42}}
+    const {stdout, stderr} = captureOutput(() => {
+      child.debug('debug message', data, {pretty})
+      child.info('info message', data, {pretty})
+      child.warn('warn message', data, {pretty})
+      child.error(new Error('failed'), data, {pretty})
+    })
+
+    assert.doesNotMatch(stdout + stderr, /\x1b\[/)
+    assert.ok(stdout.includes('[service:api] [reqId:123] debug message'))
+    assert.ok(stdout.includes('info message'))
+    assert.ok(stdout.includes('[WARN] warn message'))
+    assert.ok(stderr.includes('[ERROR] Error: failed'))
+    for (const output of [stdout, stderr]) {
+      assert.ok(output.includes("status: 'ready'"))
+      assert.ok(output.includes('active: true'))
+      assert.ok(output.includes('count: 42'))
+      assert.ok(output.endsWith('\n'))
+    }
+  })
+}
+
 test('dev formatter — data is serialized', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('req', {status: 200}))
@@ -472,6 +695,62 @@ test('prod formatter — context flattened into record', () => {
   const parsed = JSON.parse(stdout.trim())
   assert.strictEqual(parsed.service, 'api')
   assert.strictEqual(parsed.env, 'prod')
+})
+
+test('prod formatter — omitted context keys leave unused record fields absent', () => {
+  const log = createFiro({mode: 'prod'}, [{key: 'timestamp', value: 'yesterday'}])
+  log.addContext('level', 'gold')
+  log.addContext('message', 'context message')
+  log.addContext('data', 'context data')
+  log.addContext('error', 'context error')
+  log.addContext('service', 'api')
+  const child = log.child({level: 'silver', data: 'child data', error: 'child error'})
+
+  const {stdout} = captureOutput(() => {
+    log.info('hello')
+    child.info('hello')
+  })
+
+  const records = stdout.trim().split('\n').map(line => JSON.parse(line))
+  assert.strictEqual(records.length, 2)
+  for (const record of records) {
+    assert.strictEqual(record.level, 'info')
+    assert.strictEqual(record.message, 'hello')
+    assert.strictEqual(record.service, 'api')
+    assert.ok(!isNaN(Date.parse(record.timestamp)))
+    assert.ok(!('data' in record))
+    assert.ok(!('error' in record))
+  }
+})
+
+test('prod formatter — omitted inline keys preserve record fields', () => {
+  const log = createFiro({
+    mode: 'prod',
+    prodFormatterConfig: {timestamp: 'epoch'},
+  })
+  const err = new Error('query failed')
+  const before = Date.now()
+  const {stdout} = captureOutput(() => log.error(err, {reqId: 123}, {
+    ctx: [
+      {key: 'timestamp', value: 'yesterday'},
+      {key: 'level', value: 'gold'},
+      {key: 'message', value: 'context message'},
+      {key: 'data', value: 'context data'},
+      {key: 'error', value: 'context error'},
+      {key: 'service', value: 'api'},
+    ],
+  }))
+  const after = Date.now()
+
+  const record = JSON.parse(stdout)
+  assert.strictEqual(typeof record.timestamp, 'number')
+  assert.ok(record.timestamp >= before && record.timestamp <= after)
+  assert.strictEqual(record.level, 'error')
+  assert.strictEqual(record.message, err.message)
+  assert.deepStrictEqual(record.data, {reqId: 123})
+  assert.strictEqual(record.error.message, err.message)
+  assert.strictEqual(record.error.stack, err.stack)
+  assert.strictEqual(record.service, 'api')
 })
 
 test('prod formatter — hideIn prod hides context from JSON', () => {
