@@ -48,6 +48,47 @@ test('serializeError — repeated calls preserve an acyclic cause chain', () => 
   assert.strictEqual(cause.cause, reason)
 })
 
+test('serializeError — uses prototype toJSON while preserving basic fields and cyclic causes', () => {
+  class RequestError extends Error {
+    request = {internal: true}
+    code = 'E_REQUEST'
+    toJSON() {return {code: this.code}}
+  }
+  const err = new RequestError('request failed')
+  err.cause = err
+
+  const result = serializeError(err)
+
+  assert.deepStrictEqual(result, {
+    message: err.message, stack: err.stack, name: err.name,
+    code: 'E_REQUEST', cause: '[Circular]',
+  })
+  assert.strictEqual(err.request.internal, true)
+  assert.strictEqual(err.cause, err)
+})
+
+test('serializeError — preserves the cause representation chosen by toJSON', () => {
+  const cause = Object.assign(new Error('connection failed'), {request: {internal: true}})
+  const err = Object.assign(new Error('request failed', {cause}), {
+    toJSON() {return {cause: {message: cause.message}}},
+  })
+
+  assert.deepStrictEqual(serializeError(err).cause, {message: 'connection failed'})
+  assert.strictEqual(err.cause, cause)
+})
+
+test('serializeError — falls back to original fields when toJSON fails or returns a non-object', () => {
+  for (const toJSON of [() => {throw new Error('cannot serialize')}, () => null, () => 'failed']) {
+    const err = Object.assign(new Error('request failed'), {code: 'E_REQUEST', toJSON})
+    const result = JSON.parse(JSON.stringify(serializeError(err)))
+
+    assert.strictEqual(result.message, err.message)
+    assert.strictEqual(result.stack, err.stack)
+    assert.strictEqual(result.code, 'E_REQUEST')
+    assert.strictEqual(err.toJSON, toJSON)
+  }
+})
+
 test('LOG_LEVELS ordering', () => {
   assert.ok(LOG_LEVELS.debug < LOG_LEVELS.info)
   assert.ok(LOG_LEVELS.info < LOG_LEVELS.warn)

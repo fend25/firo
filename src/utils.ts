@@ -150,13 +150,25 @@ export const wrapToError = (obj: unknown): Error => {
 }
 
 const serializeErrorChain = (err: Error, seen?: Set<Error>): Record<string, unknown> => {
+  let details: object = err
+  try {
+    const toJSON = (err as Error & {toJSON?: () => unknown}).toJSON
+    if (typeof toJSON === 'function') {
+      const json = toJSON.call(err)
+      if (json !== null && typeof json === 'object') details = json
+    }
+  } catch {
+    // Keep the original error details if its custom serializer fails.
+  }
   const result: Record<string, unknown> = {
     message: err.message,
     stack: err.stack,
     name: err.name,
-    ...(err as any),
+    ...details,
   }
-  const cause = err.cause
+  // The snapshot is already serialized; JSON.stringify must not call this again.
+  delete result.toJSON
+  const cause = 'cause' in result ? result.cause : err.cause
   if (cause instanceof Error) {
     const visited = seen ?? new Set<Error>()
     visited.add(err)
@@ -167,7 +179,7 @@ const serializeErrorChain = (err: Error, seen?: Set<Error>): Record<string, unkn
   return result
 }
 
-/** Serialize an error-like value with `message`, `stack`, `name`, and recursively serialized `cause`. Cyclic error causes become `[Circular]`. */
+/** Serialize an error-like value, using its object-valued `toJSON()` when available while retaining basic fields and `cause`. Cyclic error causes become `[Circular]`. */
 export const serializeError = (_err: unknown): Record<string, unknown> =>
   serializeErrorChain(wrapToError(_err))
 

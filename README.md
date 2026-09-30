@@ -136,6 +136,8 @@ log.error(new Error('DB down'), { query: 'SELECT ...', reqId: 123 })
 log.error(someUnknownThing)
 ```
 
+Both built-in formatters use an error's `toJSON()` result when it returns an object. Missing `message`, `name`, `stack`, and `cause` are retained from the original error. If `toJSON()` throws or returns a non-object, the original error fields are used instead. The dev formatter keeps the usual readable error and stack display.
+
 ## Context
 
 Attach persistent key/value pairs to a logger instance. They appear in every log line.
@@ -330,6 +332,8 @@ const log = createFiro({ useSafeColors: true })
 ```
 
 ## Prod formatter options
+
+If a log record contains circular references, the prod formatter replaces the cyclic links with `"[Circular]"` while preserving the surrounding structure, including error details and `cause`. Shared objects that do not form a cycle are serialized normally.
 
 Configure the prod (JSON) formatter's timestamp format:
 

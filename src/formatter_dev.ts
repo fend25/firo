@@ -1,6 +1,12 @@
 import {inspect} from 'node:util'
 import process from 'node:process'
-import {colorize, colorizeLevel, FormatterFn, wrapToError} from './utils.ts'
+import {colorize, colorizeLevel, FormatterFn, serializeError, wrapToError} from './utils.ts'
+
+// Keep the native Error display and stack while using its chosen JSON fields.
+const prepareForInspect = (value: unknown): unknown =>
+  value instanceof Error && 'toJSON' in value
+    ? Object.assign(new Error(), serializeError(value))
+    : value
 
 /**
  * Configuration options for the development formatter.
@@ -58,11 +64,11 @@ export const createDevFormatter = (config: DevFormatterConfig = {}): FormatterFn
         ? {compact: false, colors, depth: null}
         : {compact: true, breakLength: Infinity, colors, depth: null}
 
-      dataStr = inspect(data, inspectOptions)
+      dataStr = inspect(prepareForInspect(data), inspectOptions)
     }
 
     // 3. Assemble the output line
-    const msgStr = typeof msg === 'object' && msg !== null ? inspect(msg, {colors, compact: true, breakLength: Infinity}) : String(msg)
+    const msgStr = typeof msg === 'object' && msg !== null ? inspect(prepareForInspect(msg), {colors, compact: true, breakLength: Infinity}) : String(msg)
     const levelMessage = level === 'error'
       ? `[ERROR] ${msgStr}`
       : level === 'warn'

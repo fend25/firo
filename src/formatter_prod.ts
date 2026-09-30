@@ -56,6 +56,19 @@ const buildRecord = (
   return logRecord
 }
 
+const createCircularReplacer = () => {
+  const ancestors: object[] = []
+  return function (this: object, key: string, value: unknown): unknown {
+    if (typeof value === 'object' && value !== null) {
+      // Only references to ancestors are cycles; shared objects in sibling fields are valid.
+      while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop()
+      if (ancestors.includes(value)) return '[Circular]'
+      ancestors.push(value)
+    }
+    return jsonReplacer(key, value)
+  }
+}
+
 /**
  * Creates a built-in formatter optimized for production.
  * Emits strictly structured NDJSON (Newline Delimited JSON) to stdout.
@@ -75,17 +88,22 @@ export const createProdFormatter = (config: ProdFormatterConfig = {}): Formatter
     try {
       line = JSON.stringify(record, jsonReplacer) + '\n'
     } catch {
-      // Fallback for circular structures
-      if (record.data) record.data = inspect(record.data)
       try {
-        line = JSON.stringify(record, jsonReplacer) + '\n'
+        // Preserve the whole record, replacing cycles wherever they occur.
+        line = JSON.stringify(record, createCircularReplacer()) + '\n'
       } catch {
-        line = JSON.stringify({
-          timestamp: record.timestamp,
-          level,
-          message: record.message,
-          error: 'Failed to serialize log record'
-        }) + '\n'
+        // Keep the existing fallback for other failures, such as a throwing data.toJSON().
+        if (record.data) record.data = inspect(record.data)
+        try {
+          line = JSON.stringify(record, jsonReplacer) + '\n'
+        } catch {
+          line = JSON.stringify({
+            timestamp: record.timestamp,
+            level,
+            message: record.message,
+            error: 'Failed to serialize log record'
+          }) + '\n'
+        }
       }
     }
 

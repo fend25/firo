@@ -629,6 +629,54 @@ test('dev formatter — info with Error as data', () => {
   assert.ok(stdout.includes('at '), 'Should output stack trace')
 })
 
+for (const pretty of [false, true]) {
+  test(`dev formatter — uses error toJSON and retains a readable stack (pretty: ${pretty})`, () => {
+    const log = createFiro({mode: 'dev', devFormatterConfig: {colors: false}})
+    let calls = 0
+    class RequestError extends Error {
+      code = 'E_REQUEST'
+      request = {internal: true}
+      toJSON() {
+        assert.strictEqual(this, err)
+        calls++
+        return {code: this.code, status: 503}
+      }
+    }
+    const err = new RequestError('request failed')
+    const {stdout, stderr} = captureOutput(() => {
+      log.error(err, undefined, {pretty})
+      log.error('payment failed', err, {pretty})
+      log.error(err, {requestId: 42}, {pretty})
+      log.info('retrying', err, {pretty})
+    })
+
+    assert.strictEqual(calls, 4)
+    for (const output of [stdout, stderr]) {
+      assert.ok(output.includes('request failed'))
+      assert.ok(output.includes(err.stack!.split('\n')[1].trim()))
+      assert.ok(output.includes('\n    at '))
+      assert.ok(output.includes("code: 'E_REQUEST'"))
+      assert.ok(output.includes('status: 503'))
+      assert.ok(!output.includes('internal: true'))
+    }
+    assert.ok(stderr.includes('requestId: 42'))
+    assert.strictEqual(err.request.internal, true)
+  })
+}
+
+test('dev formatter — preserves original error fields when toJSON throws', () => {
+  const log = createFiro({mode: 'dev', devFormatterConfig: {colors: false}})
+  const err = Object.assign(new Error('request failed'), {
+    code: 'E_REQUEST',
+    toJSON() {throw new Error('cannot serialize')},
+  })
+  const {stderr} = captureOutput(() => log.error(err))
+
+  assert.ok(stderr.includes('request failed'))
+  assert.ok(stderr.includes('\n    at '))
+  assert.ok(stderr.includes("code: 'E_REQUEST'"))
+})
+
 test('dev formatter — ends with newline', () => {
   const log = createFiro({mode: 'dev'})
   const {stdout} = captureOutput(() => log.info('test'))
@@ -833,11 +881,112 @@ test('prod formatter — handles circular structures without crashing', () => {
 
   const parsedErr = JSON.parse(lines[0])
   assert.strictEqual(parsedErr.level, 'error')
-  assert.ok(typeof parsedErr.data === 'string' && parsedErr.data.includes('[Circular *1]'))
+  assert.deepStrictEqual(parsedErr.data, {a: 1, self: '[Circular]'})
 
   const parsedInfo = JSON.parse(lines[1])
   assert.strictEqual(parsedInfo.level, 'info')
-  assert.ok(typeof parsedInfo.data === 'string' && parsedInfo.data.includes('[Circular *1]'))
+  assert.deepStrictEqual(parsedInfo.data, {a: 1, self: '[Circular]'})
+  assert.strictEqual(obj.self, obj)
+})
+
+test('prod formatter — preserves errors with circular objects in cause', () => {
+  const log = createFiro({mode: 'prod'})
+  const cause: {code: string; self?: unknown} = {code: 'ECONNREFUSED'}
+  cause.self = cause
+  const err = new Error('query failed', {cause})
+
+  const {stdout} = captureOutput(() => {
+    log.error(err, {reqId: 123})
+    log.error('request failed', err)
+    log.info('retrying', err)
+  })
+
+  const records = stdout.trim().split('\n').map(line => JSON.parse(line))
+  assert.strictEqual(records.length, 3)
+  assert.deepStrictEqual(records.map(record => record.message), ['query failed', 'request failed', 'retrying'])
+  assert.deepStrictEqual(records[0].data, {reqId: 123})
+  for (const error of [records[0].error, records[1].error, records[2].data]) {
+    assert.strictEqual(error.message, err.message)
+    assert.strictEqual(error.name, err.name)
+    assert.strictEqual(error.stack, err.stack)
+    assert.deepStrictEqual(error.cause, {code: 'ECONNREFUSED', self: '[Circular]'})
+  }
+  assert.strictEqual(err.cause, cause)
+  assert.strictEqual(cause.self, cause)
+})
+
+test('prod formatter — circular error fields preserve shared objects and BigInt across repeated logs', () => {
+  const log = createFiro({mode: 'prod'})
+  const shared = {requestId: 42n}
+  const details: {request: typeof shared; items: unknown[]} = {request: shared, items: []}
+  details.items.push(details, shared, shared)
+  const err = Object.assign(new Error('failed'), {code: 'E_QUERY', details})
+  const data = {request: shared}
+
+  const {stdout} = captureOutput(() => {
+    log.error(err, data)
+    log.error(err, data)
+  })
+
+  const records = stdout.trim().split('\n').map(line => JSON.parse(line))
+  assert.strictEqual(records.length, 2)
+  for (const record of records) {
+    assert.strictEqual(record.error.message, err.message)
+    assert.strictEqual(record.error.stack, err.stack)
+    assert.strictEqual(record.error.code, 'E_QUERY')
+    assert.deepStrictEqual(record.error.details, {
+      request: {requestId: '42'},
+      items: ['[Circular]', {requestId: '42'}, {requestId: '42'}],
+    })
+    assert.deepStrictEqual(record.data, {request: {requestId: '42'}})
+  }
+  assert.strictEqual(err.details, details)
+  assert.strictEqual(details.items[0], details)
+  assert.strictEqual(details.items[1], shared)
+  assert.strictEqual(shared.requestId, 42n)
+})
+
+test('prod formatter — uses error toJSON once per log and retains the stack', () => {
+  const log = createFiro({mode: 'prod'})
+  const request: {self?: unknown} = {}
+  request.self = request
+  let calls = 0
+  const err = Object.assign(new Error('request failed'), {
+    code: 'E_REQUEST', request,
+    toJSON() {
+      assert.strictEqual(this, err)
+      calls++
+      return {code: this.code, status: 503}
+    },
+  })
+
+  const {stdout} = captureOutput(() => {
+    log.error(err)
+    log.error('request failed', err)
+    log.info('retrying', err)
+  })
+
+  const records = stdout.trim().split('\n').map(line => JSON.parse(line))
+  assert.strictEqual(calls, 3)
+  for (const error of [records[0].error, records[1].error, records[2].data]) {
+    assert.deepStrictEqual(error, {
+      message: err.message, stack: err.stack, name: err.name,
+      code: 'E_REQUEST', status: 503,
+    })
+  }
+  assert.strictEqual(err.request.self, request)
+})
+
+test('prod formatter — still inspects data when toJSON throws', () => {
+  const log = createFiro({mode: 'prod'})
+  const data = {requestId: 42, toJSON() {throw new Error('cannot serialize')}}
+  const {stdout} = captureOutput(() => log.info('request', data))
+
+  const record = JSON.parse(stdout)
+  assert.strictEqual(record.message, 'request')
+  assert.strictEqual(typeof record.data, 'string')
+  assert.ok(record.data.includes('requestId: 42'))
+  assert.ok(!('error' in record))
 })
 
 test('prod formatter — error preserves data object', () => {
