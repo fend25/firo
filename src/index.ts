@@ -47,14 +47,14 @@ export interface Firo {
   warn: (msg: string, data?: unknown, opts?: LogOptions) => void
 
   // Overload signatures for error
-  /** Log an error object directly. */
-  error(err: Error | unknown): void
-
   /** Log an error object with additional data. */
   error(err: Error, data?: unknown, opts?: LogOptions): void
 
   /** Log a message alongside an error or custom data object. */
   error(msg: string, err?: Error | unknown, opts?: LogOptions): void
+
+  /** Log any caught value with optional additional data and log options. */
+  error(err: unknown, data?: unknown, opts?: LogOptions): void
 
   /**
    * Create a scoped child logger that inherits the current logger's context.

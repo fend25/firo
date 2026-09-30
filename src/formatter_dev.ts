@@ -52,25 +52,34 @@ export const createDevFormatter = (config: DevFormatterConfig = {}): FormatterFn
     }).join(' ')
 
     // 2. Format payload
-    if (level === 'error' && data === undefined) {
-      const realError = wrapToError(msg)
-      data = realError
-      msg = realError.message
+    const inspectOptions = opts?.pretty
+      ? {compact: false, colors, depth: null}
+      : {compact: true, breakLength: Infinity, colors, depth: null}
+
+    let errorStr = ''
+    if (level === 'error') {
+      const realError = data instanceof Error ? data : wrapToError(msg)
+      if (data instanceof Error) {
+        data = undefined
+        if (msg instanceof Error) msg = msg.message
+        if (msg === realError.message) msg = undefined
+      } else {
+        msg = undefined
+      }
+      errorStr = inspect(prepareForInspect(realError), inspectOptions)
     }
 
     let dataStr = ''
     if (data !== undefined) {
-      const inspectOptions = opts?.pretty
-        ? {compact: false, colors, depth: null}
-        : {compact: true, breakLength: Infinity, colors, depth: null}
-
       dataStr = inspect(prepareForInspect(data), inspectOptions)
     }
 
     // 3. Assemble the output line
-    const msgStr = typeof msg === 'object' && msg !== null ? inspect(prepareForInspect(msg), {colors, compact: true, breakLength: Infinity}) : String(msg)
+    const msgStr = msg === undefined && level === 'error'
+      ? ''
+      : typeof msg === 'object' && msg !== null ? inspect(prepareForInspect(msg), {colors, compact: true, breakLength: Infinity}) : String(msg)
     const levelMessage = level === 'error'
-      ? `[ERROR] ${msgStr}`
+      ? `[ERROR] ${[msgStr, errorStr, dataStr].filter(Boolean).join('\n')}`
       : level === 'warn'
         ? `[WARN] ${msgStr}`
         : msgStr
@@ -78,7 +87,7 @@ export const createDevFormatter = (config: DevFormatterConfig = {}): FormatterFn
       `[${timestamp}]`, // Normal (not dimmed)
       contextStr,
       colors ? colorizeLevel(level, levelMessage) : levelMessage,
-      colors && level === 'debug' && dataStr
+      level === 'error' ? '' : colors && level === 'debug' && dataStr
         ? `\x1b[2m${dataStr.replace(/\x1b\[0m/g, '\x1b[0m\x1b[2m')}\x1b[0m`
         : dataStr
     ]

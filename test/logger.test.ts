@@ -494,6 +494,25 @@ test('error(err) — Error only', () => {
   assert.strictEqual(calls[0].data, undefined)
 })
 
+test('error(unknown, data, opts) — accepts a caught value and preserves custom formatter arguments', () => {
+  const {fn, calls} = createSpyFormatter()
+  const log = createFiro({formatter: fn})
+  const err = new Error('request failed')
+  const data = {requestId: 42}
+  const opts: LogOptions = {pretty: true, ctx: [{key: 'operation', value: 'payment'}]}
+
+  try {
+    throw err
+  } catch (error) {
+    log.error(error, data, opts)
+  }
+
+  assert.strictEqual(calls[0].msg, err)
+  assert.strictEqual(calls[0].data, data)
+  assert.strictEqual(calls[0].opts, opts)
+  assert.strictEqual(calls[0].context[0].value, 'payment')
+})
+
 // --- Dev formatter ---
 
 test('dev formatter — writes to stdout for info', () => {
@@ -509,6 +528,53 @@ test('dev formatter — writes to stderr for error', () => {
   const {stderr} = captureOutput(() => log.error('bad'))
 
   assert.ok(stderr.includes('bad'))
+})
+
+test('dev formatter — creates a stack for a message with data and retains pretty formatting and context', () => {
+  const log = createFiro({mode: 'dev', devFormatterConfig: {colors: false}})
+  const data = {user: 1, details: {requestId: 42}}
+  const {stderr} = captureOutput(() => log.error('Payment failed', data, {
+    pretty: true, ctx: [{key: 'operation', value: 'payment'}],
+  }))
+
+  assert.ok(stderr.includes('[operation:payment] [ERROR] Error: Payment failed'))
+  assert.strictEqual(stderr.split('Payment failed').length - 1, 1)
+  assert.ok(stderr.includes('\n    at '))
+  assert.ok(stderr.includes('\n{\n  user: 1,'))
+  assert.ok(stderr.includes('requestId: 42'))
+  assert.deepStrictEqual(data, {user: 1, details: {requestId: 42}})
+})
+
+test('dev formatter — prints an original error once with its stack and optional data', () => {
+  const log = createFiro({mode: 'dev', devFormatterConfig: {colors: false}})
+  const err = new TypeError('Boom')
+  err.stack = 'TypeError: Boom\n    at originalOperation (service.ts:12:3)'
+
+  for (const data of [undefined, {requestId: 42}]) {
+    const {stderr} = captureOutput(() => log.error(err, data))
+
+    assert.ok(stderr.includes('[ERROR] TypeError: Boom'))
+    assert.strictEqual(stderr.split('Boom').length - 1, 1)
+    assert.ok(stderr.includes(err.stack))
+    if (data) assert.ok(stderr.includes('\n{ requestId: 42 }'))
+  }
+  assert.strictEqual(err.stack, 'TypeError: Boom\n    at originalOperation (service.ts:12:3)')
+})
+
+test('dev formatter — prints a distinct operation message above the error and omits a matching message', () => {
+  const log = createFiro({mode: 'dev', devFormatterConfig: {colors: false}})
+  const err = new TypeError('Boom')
+  err.stack = 'TypeError: Boom\n    at originalOperation (service.ts:12:3)'
+
+  const {stderr: distinct} = captureOutput(() => log.error('Query failed', err))
+  assert.ok(distinct.includes('[ERROR] Query failed\nTypeError: Boom'))
+  assert.strictEqual(distinct.split('Query failed').length - 1, 1)
+  assert.strictEqual(distinct.split('Boom').length - 1, 1)
+  assert.ok(distinct.includes(err.stack))
+
+  const {stderr: matching} = captureOutput(() => log.error('Boom', err))
+  assert.ok(matching.includes('[ERROR] TypeError: Boom'))
+  assert.strictEqual(matching.split('Boom').length - 1, 1)
 })
 
 test('dev formatter — timestamp format HH:MM:SS.mmm', () => {

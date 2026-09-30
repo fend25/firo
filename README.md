@@ -119,9 +119,11 @@ const log = createFiro({ minLevel: 'warn' })
 `error()` accepts multiple call signatures:
 
 ```ts
-// Message only will be automatically wrapped in an Error object to intentionally capture and preserve the stack trace
-// because stack trace with a couple of extra levels of indirection is definitely better than no stack trace at all
+// Message only — captures a stack at the logging call
 log.error('Something went wrong')
+
+// Message + extra data — also captures a stack
+log.error('Payment failed', { userId: 123 })
 
 // Message + Error object
 log.error('Query failed', new Error('timeout'))
@@ -134,7 +136,16 @@ log.error(new Error('DB down'), { query: 'SELECT ...', reqId: 123 })
 
 // Anything — will be coerced to Error
 log.error(someUnknownThing)
+
+// A caught unknown value can also be accompanied by data and options
+try {
+  await performOperation()
+} catch (error) {
+  log.error(error, { requestId: 'r-1' }, { pretty: true })
+}
 ```
+
+Both built-in formatters preserve a supplied error's stack, or create an error to capture the logging call's stack when no `Error` is supplied. In dev, the error is shown once with its stack; a distinct operation message appears above it, and additional data appears below it.
 
 Both built-in formatters use an error's `toJSON()` result when it returns an object. Missing `message`, `name`, `stack`, and `cause` are retained from the original error. If `toJSON()` throws or returns a non-object, the original error fields are used instead. The dev formatter keeps the usual readable error and stack display.
 
