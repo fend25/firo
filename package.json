@@ -46,17 +46,17 @@
     "bench": "tsx benchmark/prod.ts > /dev/null",
     "bump": "bumpp --files package.json --files jsr.json --execute \"pnpm check && pnpm build && npm publish --dry-run --access public && deno publish --dry-run\" --commit \"v%s\" --no-push"
   },
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@12.11.0",
   "engines": {
     "node": ">=16"
   },
   "devDependencies": {
-    "@types/node": "26.5.1",
+    "@types/node": "26.6.4",
     "bumpp": "12.3.0",
     "jsr": "0.14.3",
-    "pino": "10.3.1",
+    "pino": "10.4.0",
     "tsup": "8.5.1",
-    "tsx": "4.23.13",
-    "typescript": "6.0.3"
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
   }
 }
